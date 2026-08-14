@@ -1,0 +1,151 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AccountType {
+  checking
+  cash
+  credit
+  savings
+  investment
+  other
+}
+
+enum CategoryKind {
+  income
+  expense
+}
+
+enum TransactionType {
+  income
+  expense
+  transfer
+}
+
+enum InvestmentType {
+  stock
+  fund
+  fixed_income
+  crypto
+  other
+}
+
+model Profile {
+  id        String   @id @db.Uuid
+  fullName  String?  @map("full_name")
+  avatarUrl String?  @map("avatar_url")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  accounts      Account[]
+  categories    Category[]
+  transactions  Transaction[]
+  investments   Investment[]
+  investmentTxs InvestmentTransaction[]
+
+  @@map("profiles")
+}
+
+model Account {
+  id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String      @map("user_id") @db.Uuid
+  name           String
+  type           AccountType @default(checking)
+  currency       String      @default("BRL") @db.Char(3)
+  initialBalance Decimal     @default(0) @map("initial_balance") @db.Decimal(18, 2)
+  isArchived     Boolean     @default(false) @map("is_archived")
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user         Profile        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Category {
+  id        String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String       @map("user_id") @db.Uuid
+  name      String
+  kind      CategoryKind
+  color     String?
+  icon      String?
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user         Profile       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@unique([userId, name, kind])
+  @@index([userId])
+  @@map("categories")
+}
+
+model Transaction {
+  id          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String          @map("user_id") @db.Uuid
+  accountId   String          @map("account_id") @db.Uuid
+  categoryId  String?         @map("category_id") @db.Uuid
+  type        TransactionType
+  amount      Decimal         @db.Decimal(18, 2)
+  occurredAt  DateTime        @map("occurred_at") @db.Timestamptz(6)
+  description String
+  notes       String?
+  deletedAt   DateTime?       @map("deleted_at") @db.Timestamptz(6)
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user     Profile   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account  Account   @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([userId, occurredAt(sort: Desc)])
+  @@index([accountId])
+  @@index([categoryId])
+  @@map("transactions")
+}
+
+model Investment {
+  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String         @map("user_id") @db.Uuid
+  name         String
+  type         InvestmentType @default(other)
+  ticker       String?
+  currency     String         @default("BRL") @db.Char(3)
+  quantity     Decimal        @default(0) @db.Decimal(18, 8)
+  averagePrice Decimal        @default(0) @map("average_price") @db.Decimal(18, 2)
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user         Profile                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions InvestmentTransaction[]
+
+  @@index([userId])
+  @@map("investments")
+}
+
+model InvestmentTransaction {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  investmentId String   @map("investment_id") @db.Uuid
+  kind         String
+  quantity     Decimal  @db.Decimal(18, 8)
+  unitPrice    Decimal  @map("unit_price") @db.Decimal(18, 2)
+  occurredAt   DateTime @map("occurred_at") @db.Timestamptz(6)
+  notes        String?
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user       Profile    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  investment Investment @relation(fields: [investmentId], references: [id], onDelete: Cascade)
+
+  @@index([userId, occurredAt(sort: Desc)])
+  @@index([investmentId])
+  @@map("investment_transactions")
+}
