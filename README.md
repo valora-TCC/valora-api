@@ -11,13 +11,15 @@ Backend NestJS do Valora — gestão financeira pessoal.
 
 ## Configuração
 
+Requer [pnpm](https://pnpm.io/installation) (`npm install -g pnpm`).
+
 ```powershell
 Copy-Item .env.example .env
 # Preencha as variáveis do Supabase
-npm install
-npx prisma generate
-npx prisma migrate deploy
-npm run start:dev
+pnpm install
+pnpm exec prisma generate
+pnpm exec prisma migrate deploy
+pnpm start:dev
 ```
 
 API: `http://localhost:3000/api` · Health: `GET /api/health`
@@ -26,12 +28,12 @@ API: `http://localhost:3000/api` · Health: `GET /api/health`
 
 | Comando | Descrição |
 |---------|-----------|
-| `npm run start:dev` | Dev com watch |
-| `npm run build` | Build produção |
-| `npm run lint` | ESLint |
-| `npm run typecheck` | TypeScript |
-| `npm test` | Jest |
-| `npx prisma migrate deploy` | Aplicar migrations |
+| `pnpm start:dev` | Dev com watch |
+| `pnpm build` | Build produção |
+| `pnpm lint` | ESLint |
+| `pnpm typecheck` | TypeScript |
+| `pnpm test` | Jest |
+| `pnpm exec prisma migrate deploy` | Aplicar migrations |
 
 ## Segurança
 
@@ -40,4 +42,4 @@ API: `http://localhost:3000/api` · Health: `GET /api/health`
 
 ## Deploy
 
-Railway / Render / Fly.io: configure as mesmas variáveis de ambiente e rode `npx prisma migrate deploy` no release.
+Railway / Render / Fly.io: configure as mesmas variáveis de ambiente e rode `pnpm exec prisma migrate deploy` no release.
