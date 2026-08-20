@@ -20,7 +20,7 @@ jobs:
       - run: pnpm exec prisma generate
       - run: pnpm lint
       - run: pnpm typecheck
-      - run: pnpm test -- --passWithNoTests
+      - run: pnpm test --passWithNoTests
       - run: pnpm build
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/valora

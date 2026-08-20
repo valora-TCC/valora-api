@@ -87,6 +87,7 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node",
-    "forceExit": true
+    "forceExit": true,
+    "passWithNoTests": true
   }
 }
