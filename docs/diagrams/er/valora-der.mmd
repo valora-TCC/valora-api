@@ -1,0 +1,164 @@
+erDiagram
+  %% DER oficial — Documentação DER 2.0
+  %% Cardinalidades e campos principais do documento.
+  %% usuario.senha consta no DER; na implementação a senha fica no Supabase Auth (D-001).
+
+  USUARIO {
+    uuid id_usuario PK
+    string nome
+    string email UK
+    string senha "somente no DER; não persistida"
+    date data_nascimento
+    datetime data_criacao
+    boolean status
+  }
+
+  CARTEIRA {
+    uuid id_carteira PK
+    uuid id_usuario FK
+    string nome
+    string descricao
+    decimal saldo_atual
+    datetime data_criacao
+    boolean status
+  }
+
+  TRANSACAO {
+    uuid id_transacao PK
+    uuid id_carteira FK
+    uuid id_categoria FK
+    string tipo
+    decimal valor
+    string descricao
+    datetime data_transacao
+    string forma_pagamento
+    boolean status
+  }
+
+  CATEGORIA {
+    uuid id_categoria PK
+    uuid id_usuario FK
+    string nome
+    string tipo
+    string cor
+    string icone
+    datetime data_criacao
+    boolean status
+  }
+
+  META {
+    uuid id_meta PK
+    uuid id_usuario FK
+    string nome
+    string descricao
+    decimal valor_objetivo
+    decimal valor_atual
+    date data_inicio
+    date data_fim
+    boolean status
+  }
+
+  PROGRESSO_META {
+    uuid id_progresso PK
+    uuid id_meta FK
+    date data
+    decimal valor
+    string observacao
+  }
+
+  ORCAMENTO {
+    uuid id_orcamento PK
+    uuid id_usuario FK
+    int mes
+    int ano "presente no modelo físico; omitido no DER textual"
+    string nome
+    decimal valor_total
+    string observacao
+    boolean status
+    datetime data_criacao
+  }
+
+  ORCAMENTO_CATEGORIA {
+    uuid id_orc_categoria PK
+    uuid id_orcamento FK
+    uuid id_categoria FK
+    decimal limite
+    decimal valor_gasto
+  }
+
+  NOTIFICACAO {
+    uuid id_notificacao PK
+    uuid id_usuario FK
+    string titulo
+    string mensagem
+    string tipo
+    datetime data_envio
+    boolean lida
+    datetime data_leitura
+    uuid referencia_id
+    string referencia_tipo
+  }
+
+  SIMULACAO_JUROS {
+    uuid id_simulacao PK
+    uuid id_usuario FK
+    string nome
+    decimal valor_inicial
+    decimal taxa_juros
+    string tipo_taxa
+    int tempo_meses
+    decimal resultado_final
+    datetime data_simulacao
+  }
+
+  CONTEUDO {
+    uuid id_conteudo PK
+    string titulo
+    string descricao
+    string tipo
+    string url
+    string capa_url
+    datetime data_publicacao
+    boolean status
+  }
+
+  USUARIO_CONTEUDO {
+    uuid id_usuario PK_FK
+    uuid id_conteudo PK_FK
+    datetime data_acesso
+    boolean concluido
+    decimal progresso
+  }
+
+  MOEDA {
+    uuid id_moeda PK
+    string codigo UK
+    string nome
+    string simbolo
+    decimal taxa_para_real
+    datetime data_atualizacao
+  }
+
+  TAXA {
+    uuid id_taxa PK
+    uuid id_moeda FK
+    string nome
+    decimal valor_percentual
+    datetime data_atualizacao
+    string fonte
+  }
+
+  USUARIO ||--o{ CARTEIRA : "possui"
+  USUARIO ||--o{ CATEGORIA : "possui"
+  CARTEIRA ||--o{ TRANSACAO : "possui"
+  CATEGORIA ||--o{ TRANSACAO : "classifica"
+  USUARIO ||--o{ META : "possui"
+  META ||--o{ PROGRESSO_META : "gera"
+  USUARIO ||--o{ ORCAMENTO : "possui"
+  ORCAMENTO ||--o{ ORCAMENTO_CATEGORIA : "possui"
+  CATEGORIA ||--o{ ORCAMENTO_CATEGORIA : "refere-se"
+  USUARIO ||--o{ NOTIFICACAO : "recebe"
+  USUARIO ||--o{ SIMULACAO_JUROS : "realiza"
+  CONTEUDO ||--o{ USUARIO_CONTEUDO : "possui"
+  USUARIO ||--o{ USUARIO_CONTEUDO : "consome"
+  MOEDA ||--o{ TAXA : "possui"
