@@ -1,0 +1,162 @@
+erDiagram
+  %% Modelo físico PostgreSQL/Supabase — tipos adaptados (D-002, D-003, D-006).
+  %% senha não é coluna (D-001). IDs uuid. status -> ativo boolean.
+
+  usuario {
+    uuid id_usuario PK "FK auth.users.id"
+    varchar nome
+    varchar email UK "nullable no legado"
+    date data_nascimento "D-004"
+    timestamptz data_criacao
+    boolean ativo
+  }
+
+  carteira {
+    uuid id_carteira PK
+    uuid id_usuario FK
+    varchar nome
+    text descricao
+    numeric_18_2 saldo_atual
+    timestamptz data_criacao
+    boolean ativo
+  }
+
+  categoria {
+    uuid id_categoria PK
+    uuid id_usuario FK
+    varchar nome
+    tipo_financeiro tipo "RECEITA DESPESA"
+    varchar cor
+    varchar icone
+    timestamptz data_criacao
+    boolean ativo
+  }
+
+  transacao {
+    uuid id_transacao PK
+    uuid id_carteira FK
+    uuid id_categoria FK "NOT NULL"
+    tipo_financeiro tipo
+    numeric_18_2 valor
+    text descricao
+    timestamptz data_transacao
+    text forma_pagamento
+    boolean ativo
+  }
+
+  meta {
+    uuid id_meta PK
+    uuid id_usuario FK
+    varchar nome
+    text descricao
+    numeric_18_2 valor_objetivo
+    numeric_18_2 valor_atual
+    date data_inicio
+    date data_fim
+    boolean ativo
+  }
+
+  progresso_meta {
+    uuid id_progresso PK
+    uuid id_meta FK
+    date data
+    numeric_18_2 valor
+    text observacao
+  }
+
+  orcamento {
+    uuid id_orcamento PK
+    uuid id_usuario FK
+    int mes
+    int ano "D-005"
+    varchar nome
+    numeric_18_2 valor_total
+    text observacao
+    boolean ativo
+    timestamptz data_criacao
+  }
+
+  orcamento_categoria {
+    uuid id_orc_categoria PK
+    uuid id_orcamento FK
+    uuid id_categoria FK
+    numeric_18_2 limite
+    numeric_18_2 valor_gasto
+  }
+
+  notificacao {
+    uuid id_notificacao PK
+    uuid id_usuario FK
+    varchar titulo
+    text mensagem
+    text tipo
+    timestamptz data_envio
+    boolean lida
+    timestamptz data_leitura
+    uuid referencia_id
+    text referencia_tipo
+  }
+
+  simulacao_juros {
+    uuid id_simulacao PK
+    uuid id_usuario FK
+    varchar nome
+    numeric_18_2 valor_inicial
+    numeric_18_6 taxa_juros
+    text tipo_taxa
+    int tempo_meses
+    numeric_18_2 resultado_final
+    timestamptz data_simulacao
+  }
+
+  conteudo {
+    uuid id_conteudo PK
+    varchar titulo
+    text descricao
+    text tipo
+    text url
+    text capa_url
+    timestamptz data_publicacao
+    boolean ativo
+  }
+
+  usuario_conteudo {
+    uuid id_usuario PK_FK
+    uuid id_conteudo PK_FK
+    timestamptz data_acesso
+    boolean concluido
+    numeric_5_2 progresso
+  }
+
+  moeda {
+    uuid id_moeda PK
+    varchar codigo UK
+    varchar nome
+    varchar simbolo
+    numeric_18_8 taxa_para_real
+    timestamptz data_atualizacao
+  }
+
+  taxa {
+    uuid id_taxa PK
+    uuid id_moeda FK
+    varchar nome
+    numeric_18_6 valor_percentual
+    timestamptz data_atualizacao
+    text fonte
+  }
+
+  usuario ||--o{ carteira : id_usuario
+  usuario ||--o{ categoria : id_usuario
+  carteira ||--o{ transacao : id_carteira
+  categoria ||--o{ transacao : id_categoria
+  usuario ||--o{ meta : id_usuario
+  meta ||--o{ progresso_meta : id_meta
+  usuario ||--o{ orcamento : id_usuario
+  orcamento ||--o{ orcamento_categoria : id_orcamento
+  categoria ||--o{ orcamento_categoria : id_categoria
+  usuario ||--o{ notificacao : id_usuario
+  usuario ||--o{ simulacao_juros : id_usuario
+  conteudo ||--o{ usuario_conteudo : id_conteudo
+  usuario ||--o{ usuario_conteudo : id_usuario
+  moeda ||--o{ taxa : id_moeda

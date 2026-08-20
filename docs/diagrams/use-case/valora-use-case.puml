@@ -1,0 +1,134 @@
+@startuml valora-use-case
+' Caso de uso oficial do Valora — Documentação Caso de Uso 2.0
+' Não incluir casos que não estejam no documento.
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+
+actor "Usuário" as User
+actor "Usuário Padrão\n(Titular)" as Titular
+actor "Administrador" as Admin
+actor "Serviço de E-mail" as Email
+actor "Serviço de Push\n(Dispositivo)" as Push
+
+Titular --|> User
+
+rectangle Valora {
+
+  package "Acesso e segurança" {
+    usecase "Fazer Login" as UC_Login
+    usecase "Validar Credenciais" as UC_Validar
+    usecase "Recuperar Senha" as UC_Recuperar
+    usecase "Gerenciar Conta" as UC_Conta
+  }
+
+  package "Gestão financeira" {
+    usecase "Gerenciar Carteira" as UC_Carteira
+    usecase "Registrar Receita" as UC_Receita
+    usecase "Registrar Despesa" as UC_Despesa
+    usecase "Gerenciar Categorias" as UC_Categorias
+    usecase "Visualizar Transações" as UC_VerTx
+    usecase "Atualizar Saldo da Carteira" as UC_Saldo
+  }
+
+  package "Planejamento e metas" {
+    usecase "Gerenciar Metas" as UC_Metas
+    usecase "Definir Meta" as UC_DefMeta
+    usecase "Acompanhar Progresso" as UC_AcompMeta
+    usecase "Registrar Progresso" as UC_RegProg
+  }
+
+  package "Orçamento" {
+    usecase "Gerenciar Orçamento Mensal" as UC_Orc
+    usecase "Definir Categorias do Orçamento" as UC_OrcCat
+    usecase "Definir Limites" as UC_Limites
+    usecase "Lançar/Registrar Gastos" as UC_LancGastos
+    usecase "Comparar Gastos com Limites" as UC_Comparar
+    usecase "Visualizar Status do Orçamento" as UC_StatusOrc
+  }
+
+  package "Educação financeira" {
+    usecase "Gerenciar Conteúdo Educativo" as UC_Edu
+    usecase "Listar Conteúdos" as UC_ListarEdu
+    usecase "Acessar Conteúdo" as UC_AcessarEdu
+    usecase "Acompanhar Progresso" as UC_ProgEdu
+  }
+
+  package "Simulação" {
+    usecase "Realizar Simulação de Juros" as UC_Sim
+  }
+
+  package "Relatórios e análises" {
+    usecase "Gerar Relatórios e Gráficos" as UC_Rel
+    usecase "Selecionar Período" as UC_Periodo
+    usecase "Buscar/Filtrar Dados" as UC_Filtro
+    usecase "Gerar Gráficos" as UC_Graficos
+    usecase "Exibir Relatórios" as UC_Exibir
+  }
+
+  package "Notificações" {
+    usecase "Gerenciar Notificações" as UC_Notif
+    usecase "Verificar Contas Vencendo" as UC_Vencendo
+    usecase "Enviar Notificação" as UC_Enviar
+    usecase "Notificação por E-mail" as UC_Email
+    usecase "Notificação no Sistema" as UC_Sistema
+  }
+}
+
+' Associações ator — caso de uso (documento: Usuário utiliza; Titular carteiras; Admin manutenção)
+User --> UC_Login
+User --> UC_Recuperar
+User --> UC_Conta
+User --> UC_Receita
+User --> UC_Despesa
+User --> UC_Categorias
+User --> UC_VerTx
+User --> UC_Metas
+User --> UC_Orc
+User --> UC_Edu
+User --> UC_Sim
+User --> UC_Rel
+User --> UC_Notif
+
+Titular --> UC_Carteira
+
+Admin --> UC_Edu
+Admin --> UC_Conta
+
+Email --> UC_Email
+Push --> UC_Sistema
+
+' <<include>> e <<extend>> conforme documentação oficial
+UC_Login ..> UC_Validar : <<include>>
+UC_Login <.. UC_Recuperar : <<extend>>
+
+UC_Receita ..> UC_Saldo : <<include>>
+UC_Despesa ..> UC_Saldo : <<include>>
+UC_Carteira ..> UC_Saldo : <<include>>
+
+UC_Metas ..> UC_DefMeta : <<include>>
+UC_Metas ..> UC_AcompMeta : <<include>>
+UC_Metas ..> UC_RegProg : <<include>>
+
+UC_Orc ..> UC_OrcCat : <<include>>
+UC_Orc ..> UC_Limites : <<include>>
+UC_Orc ..> UC_LancGastos : <<include>>
+UC_Orc ..> UC_Comparar : <<include>>
+UC_Orc ..> UC_StatusOrc : <<include>>
+
+UC_Edu ..> UC_ListarEdu : <<include>>
+UC_Edu ..> UC_AcessarEdu : <<include>>
+UC_Edu ..> UC_ProgEdu : <<include>>
+
+UC_Rel ..> UC_Periodo : <<include>>
+UC_Rel ..> UC_Filtro : <<include>>
+UC_Rel ..> UC_Graficos : <<include>>
+UC_Rel ..> UC_Exibir : <<include>>
+
+UC_Notif ..> UC_Vencendo : <<include>>
+UC_Notif ..> UC_Enviar : <<include>>
+UC_Notif <.. UC_Email : <<extend>>
+UC_Notif <.. UC_Sistema : <<extend>>
+
+@enduml

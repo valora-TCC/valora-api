@@ -16,8 +16,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(config: ConfigService) {
     const supabaseUrl = config.getOrThrow<string>('SUPABASE_URL').replace(/\/$/, '');
     const jwksUri =
-      config.get<string>('SUPABASE_JWKS_URL') ??
-      `${supabaseUrl}/auth/v1/.well-known/jwks.json`;
+      config.get<string>('SUPABASE_JWKS_URL') ?? `${supabaseUrl}/auth/v1/.well-known/jwks.json`;
 
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),

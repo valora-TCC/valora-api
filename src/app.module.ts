@@ -7,11 +7,14 @@ import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { PrismaModule } from './prisma/prisma.module';
 import { HealthModule } from './health/health.module';
 import { UsersModule } from './users/users.module';
-import { AccountsModule } from './accounts/accounts.module';
-import { CategoriesModule } from './categories/categories.module';
-import { TransactionsModule } from './transactions/transactions.module';
+import { CarteirasModule } from './carteiras/carteiras.module';
+import { CategoriasModule } from './categorias/categorias.module';
+import { TransacoesModule } from './transacoes/transacoes.module';
+import { MetasModule } from './metas/metas.module';
+import { OrcamentosModule } from './orcamentos/orcamentos.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { InvestmentsModule } from './investments/investments.module';
+import { NotificacoesModule } from './notificacoes/notificacoes.module';
 import { validateEnv } from './config/env.validation';
 
 @Module({
@@ -25,11 +28,14 @@ import { validateEnv } from './config/env.validation';
     AuthModule,
     HealthModule,
     UsersModule,
-    AccountsModule,
-    CategoriesModule,
-    TransactionsModule,
+    CarteirasModule,
+    CategoriasModule,
+    TransacoesModule,
+    MetasModule,
+    OrcamentosModule,
     DashboardModule,
     InvestmentsModule,
+    NotificacoesModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

@@ -24,6 +24,17 @@ pnpm start:dev
 
 API: `http://localhost:3000/api` · Health: `GET /api/health`
 
+## Documentação
+
+Diagramas, requisitos e decisões de arquitetura ficam em [`docs/`](docs/):
+
+- [`docs/architecture/`](docs/architecture/) — arquitetura, contexto, decisões
+- [`docs/diagrams/`](docs/diagrams/) — Caso de Uso, BPMN, DER, modelo físico
+- [`docs/database/database-model.md`](docs/database/database-model.md) — modelo PostgreSQL
+- [`docs/requirements/`](docs/requirements/) — RF e rastreabilidade
+
+SQL espelhado do Prisma: [`supabase/migrations/`](supabase/migrations/).
+
 ## Scripts
 
 | Comando | Descrição |
@@ -38,7 +49,8 @@ API: `http://localhost:3000/api` · Health: `GET /api/health`
 ## Segurança
 
 - Nunca exponha `SUPABASE_SERVICE_ROLE_KEY` ou `DATABASE_URL` no frontend.
-- Queries filtram por `user_id` do JWT; RLS reforça o isolamento no Postgres.
+- Queries filtram pelo `id_usuario` do JWT; RLS reforça o isolamento no Postgres.
+- Modelo oficial em português (`usuario`, `carteira`, `transacao`, …). SQL também em `supabase/migrations/`. Não rode `supabase db push` no mesmo banco após `prisma migrate deploy`.
 
 ## Deploy
 

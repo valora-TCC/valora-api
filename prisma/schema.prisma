@@ -7,24 +7,9 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum AccountType {
-  checking
-  cash
-  credit
-  savings
-  investment
-  other
-}
-
-enum CategoryKind {
-  income
-  expense
-}
-
-enum TransactionType {
-  income
-  expense
-  transfer
+enum TipoFinanceiro {
+  RECEITA
+  DESPESA
 }
 
 enum InvestmentType {
@@ -35,82 +20,239 @@ enum InvestmentType {
   other
 }
 
-model Profile {
-  id        String   @id @db.Uuid
-  fullName  String?  @map("full_name")
-  avatarUrl String?  @map("avatar_url")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+model Usuario {
+  id             String    @id @map("id_usuario") @db.Uuid
+  nome           String
+  email          String?   @unique
+  dataNascimento DateTime? @map("data_nascimento") @db.Date
+  dataCriacao    DateTime  @default(now()) @map("data_criacao") @db.Timestamptz(6)
+  ativo          Boolean   @default(true)
 
-  accounts      Account[]
-  categories    Category[]
-  transactions  Transaction[]
-  investments   Investment[]
-  investmentTxs InvestmentTransaction[]
+  carteiras        Carteira[]
+  categorias       Categoria[]
+  metas            Meta[]
+  orcamentos       Orcamento[]
+  notificacoes     Notificacao[]
+  simulacoes       SimulacaoJuros[]
+  usuarioConteudos UsuarioConteudo[]
+  investments      Investment[]
+  investmentTxs    InvestmentTransaction[]
 
-  @@map("profiles")
+  @@map("usuario")
 }
 
-model Account {
-  id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId         String      @map("user_id") @db.Uuid
-  name           String
-  type           AccountType @default(checking)
-  currency       String      @default("BRL") @db.Char(3)
-  initialBalance Decimal     @default(0) @map("initial_balance") @db.Decimal(18, 2)
-  isArchived     Boolean     @default(false) @map("is_archived")
-  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+model Carteira {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @map("id_carteira") @db.Uuid
+  idUsuario   String   @map("id_usuario") @db.Uuid
+  nome        String
+  descricao   String?
+  saldoAtual  Decimal  @default(0) @map("saldo_atual") @db.Decimal(18, 2)
+  dataCriacao DateTime @default(now()) @map("data_criacao") @db.Timestamptz(6)
+  ativo       Boolean  @default(true)
 
-  user         Profile        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  transactions Transaction[]
+  usuario    Usuario     @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+  transacoes Transacao[]
 
-  @@index([userId])
-  @@map("accounts")
+  @@index([idUsuario])
+  @@map("carteira")
 }
 
-model Category {
-  id        String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId    String       @map("user_id") @db.Uuid
-  name      String
-  kind      CategoryKind
-  color     String?
-  icon      String?
-  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+model Categoria {
+  id          String          @id @default(dbgenerated("gen_random_uuid()")) @map("id_categoria") @db.Uuid
+  idUsuario   String          @map("id_usuario") @db.Uuid
+  nome        String
+  tipo        TipoFinanceiro
+  cor         String?
+  icone       String?
+  dataCriacao DateTime        @default(now()) @map("data_criacao") @db.Timestamptz(6)
+  ativo       Boolean         @default(true)
 
-  user         Profile       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  transactions Transaction[]
+  usuario              Usuario              @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+  transacoes           Transacao[]
+  orcamentoCategorias  OrcamentoCategoria[]
 
-  @@unique([userId, name, kind])
-  @@index([userId])
-  @@map("categories")
+  @@unique([idUsuario, nome, tipo])
+  @@index([idUsuario])
+  @@map("categoria")
 }
 
-model Transaction {
-  id          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId      String          @map("user_id") @db.Uuid
-  accountId   String          @map("account_id") @db.Uuid
-  categoryId  String?         @map("category_id") @db.Uuid
-  type        TransactionType
-  amount      Decimal         @db.Decimal(18, 2)
-  occurredAt  DateTime        @map("occurred_at") @db.Timestamptz(6)
-  description String
-  notes       String?
-  deletedAt   DateTime?       @map("deleted_at") @db.Timestamptz(6)
-  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+model Transacao {
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @map("id_transacao") @db.Uuid
+  idCarteira     String          @map("id_carteira") @db.Uuid
+  idCategoria    String          @map("id_categoria") @db.Uuid
+  tipo           TipoFinanceiro
+  valor          Decimal         @db.Decimal(18, 2)
+  descricao      String
+  dataTransacao  DateTime        @map("data_transacao") @db.Timestamptz(6)
+  formaPagamento String?         @map("forma_pagamento")
+  ativo          Boolean         @default(true)
 
-  user     Profile   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  account  Account   @relation(fields: [accountId], references: [id], onDelete: Restrict)
-  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  carteira  Carteira  @relation(fields: [idCarteira], references: [id], onDelete: Restrict)
+  categoria Categoria @relation(fields: [idCategoria], references: [id], onDelete: Restrict)
 
-  @@index([userId, occurredAt(sort: Desc)])
-  @@index([accountId])
-  @@index([categoryId])
-  @@map("transactions")
+  @@index([idCarteira])
+  @@index([idCategoria])
+  @@index([dataTransacao(sort: Desc)])
+  @@map("transacao")
 }
 
+model Meta {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @map("id_meta") @db.Uuid
+  idUsuario     String    @map("id_usuario") @db.Uuid
+  nome          String
+  descricao     String?
+  valorObjetivo Decimal   @map("valor_objetivo") @db.Decimal(18, 2)
+  valorAtual    Decimal   @default(0) @map("valor_atual") @db.Decimal(18, 2)
+  dataInicio    DateTime  @map("data_inicio") @db.Date
+  dataFim       DateTime  @map("data_fim") @db.Date
+  ativo         Boolean   @default(true)
+
+  usuario    Usuario         @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+  progressos ProgressoMeta[]
+
+  @@index([idUsuario])
+  @@map("meta")
+}
+
+model ProgressoMeta {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @map("id_progresso") @db.Uuid
+  idMeta     String   @map("id_meta") @db.Uuid
+  data       DateTime @db.Date
+  valor      Decimal  @db.Decimal(18, 2)
+  observacao String?
+
+  meta Meta @relation(fields: [idMeta], references: [id], onDelete: Cascade)
+
+  @@index([idMeta])
+  @@map("progresso_meta")
+}
+
+model Orcamento {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @map("id_orcamento") @db.Uuid
+  idUsuario   String   @map("id_usuario") @db.Uuid
+  mes         Int
+  ano         Int
+  nome        String
+  valorTotal  Decimal  @map("valor_total") @db.Decimal(18, 2)
+  observacao  String?
+  ativo       Boolean  @default(true)
+  dataCriacao DateTime @default(now()) @map("data_criacao") @db.Timestamptz(6)
+
+  usuario     Usuario              @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+  categorias  OrcamentoCategoria[]
+
+  @@index([idUsuario])
+  @@index([idUsuario, ano, mes])
+  @@map("orcamento")
+}
+
+model OrcamentoCategoria {
+  id           String  @id @default(dbgenerated("gen_random_uuid()")) @map("id_orc_categoria") @db.Uuid
+  idOrcamento  String  @map("id_orcamento") @db.Uuid
+  idCategoria  String  @map("id_categoria") @db.Uuid
+  limite       Decimal @db.Decimal(18, 2)
+  valorGasto   Decimal @default(0) @map("valor_gasto") @db.Decimal(18, 2)
+
+  orcamento Orcamento @relation(fields: [idOrcamento], references: [id], onDelete: Cascade)
+  categoria Categoria @relation(fields: [idCategoria], references: [id], onDelete: Restrict)
+
+  @@index([idOrcamento])
+  @@index([idCategoria])
+  @@map("orcamento_categoria")
+}
+
+model Notificacao {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @map("id_notificacao") @db.Uuid
+  idUsuario      String    @map("id_usuario") @db.Uuid
+  titulo         String
+  mensagem       String
+  tipo           String?
+  dataEnvio      DateTime  @default(now()) @map("data_envio") @db.Timestamptz(6)
+  lida           Boolean   @default(false)
+  dataLeitura    DateTime? @map("data_leitura") @db.Timestamptz(6)
+  referenciaId   String?   @map("referencia_id") @db.Uuid
+  referenciaTipo String?   @map("referencia_tipo")
+
+  usuario Usuario @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+
+  @@index([idUsuario])
+  @@map("notificacao")
+}
+
+model SimulacaoJuros {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @map("id_simulacao") @db.Uuid
+  idUsuario      String   @map("id_usuario") @db.Uuid
+  nome           String
+  valorInicial   Decimal  @map("valor_inicial") @db.Decimal(18, 2)
+  taxaJuros      Decimal  @map("taxa_juros") @db.Decimal(18, 6)
+  tipoTaxa       String   @map("tipo_taxa")
+  tempoMeses     Int      @map("tempo_meses")
+  resultadoFinal Decimal  @map("resultado_final") @db.Decimal(18, 2)
+  dataSimulacao  DateTime @default(now()) @map("data_simulacao") @db.Timestamptz(6)
+
+  usuario Usuario @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+
+  @@index([idUsuario])
+  @@map("simulacao_juros")
+}
+
+model Conteudo {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @map("id_conteudo") @db.Uuid
+  titulo          String
+  descricao       String?
+  tipo            String?
+  url             String?
+  capaUrl         String?   @map("capa_url")
+  dataPublicacao  DateTime? @map("data_publicacao") @db.Timestamptz(6)
+  ativo           Boolean   @default(true)
+
+  usuarios UsuarioConteudo[]
+
+  @@map("conteudo")
+}
+
+model UsuarioConteudo {
+  idUsuario  String   @map("id_usuario") @db.Uuid
+  idConteudo String   @map("id_conteudo") @db.Uuid
+  dataAcesso DateTime @default(now()) @map("data_acesso") @db.Timestamptz(6)
+  concluido  Boolean  @default(false)
+  progresso  Decimal  @default(0) @db.Decimal(5, 2)
+
+  usuario  Usuario  @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+  conteudo Conteudo @relation(fields: [idConteudo], references: [id], onDelete: Cascade)
+
+  @@id([idUsuario, idConteudo])
+  @@map("usuario_conteudo")
+}
+
+model Moeda {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @map("id_moeda") @db.Uuid
+  codigo         String   @unique
+  nome           String
+  simbolo        String
+  taxaParaReal   Decimal  @map("taxa_para_real") @db.Decimal(18, 8)
+  dataAtualizacao DateTime @default(now()) @map("data_atualizacao") @db.Timestamptz(6)
+
+  taxas Taxa[]
+
+  @@map("moeda")
+}
+
+model Taxa {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @map("id_taxa") @db.Uuid
+  idMoeda         String   @map("id_moeda") @db.Uuid
+  nome            String
+  valorPercentual Decimal  @map("valor_percentual") @db.Decimal(18, 6)
+  dataAtualizacao DateTime @default(now()) @map("data_atualizacao") @db.Timestamptz(6)
+  fonte           String?
+
+  moeda Moeda @relation(fields: [idMoeda], references: [id], onDelete: Restrict)
+
+  @@index([idMoeda])
+  @@map("taxa")
+}
+
+/// Extra: fora do DER oficial (D-008).
 model Investment {
   id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId       String         @map("user_id") @db.Uuid
@@ -123,13 +265,14 @@ model Investment {
   createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  user         Profile                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         Usuario                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions InvestmentTransaction[]
 
   @@index([userId])
   @@map("investments")
 }
 
+/// Extra: fora do DER oficial (D-008).
 model InvestmentTransaction {
   id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId       String   @map("user_id") @db.Uuid
@@ -142,7 +285,7 @@ model InvestmentTransaction {
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  user       Profile    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       Usuario    @relation(fields: [userId], references: [id], onDelete: Cascade)
   investment Investment @relation(fields: [investmentId], references: [id], onDelete: Cascade)
 
   @@index([userId, occurredAt(sort: Desc)])

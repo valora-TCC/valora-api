@@ -14,64 +14,55 @@ export class DashboardService {
       : new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
     const to = query.to ? new Date(query.to) : now;
 
-    const where: Prisma.TransactionWhereInput = {
-      userId,
-      deletedAt: null,
-      occurredAt: { gte: from, lte: to },
+    const where: Prisma.TransacaoWhereInput = {
+      ativo: true,
+      carteira: { idUsuario: userId },
+      dataTransacao: { gte: from, lte: to },
     };
 
-    const [byType, byCategory, recent, accounts] = await Promise.all([
-      this.prisma.transaction.groupBy({
-        by: ['type'],
+    const [byType, byCategory, recent, carteiras] = await Promise.all([
+      this.prisma.transacao.groupBy({
+        by: ['tipo'],
         where,
-        _sum: { amount: true },
+        _sum: { valor: true },
       }),
-      this.prisma.transaction.groupBy({
-        by: ['categoryId'],
-        where: { ...where, type: 'expense' },
-        _sum: { amount: true },
+      this.prisma.transacao.groupBy({
+        by: ['idCategoria'],
+        where: { ...where, tipo: 'DESPESA' },
+        _sum: { valor: true },
       }),
-      this.prisma.transaction.findMany({
+      this.prisma.transacao.findMany({
         where,
-        include: { account: true, category: true },
-        orderBy: { occurredAt: 'desc' },
+        include: { carteira: true, categoria: true },
+        orderBy: { dataTransacao: 'desc' },
         take: 8,
       }),
-      this.prisma.account.findMany({ where: { userId, isArchived: false } }),
+      this.prisma.carteira.findMany({ where: { idUsuario: userId, ativo: true } }),
     ]);
 
-    const income = byType.find((r) => r.type === 'income')?._sum.amount ?? new Prisma.Decimal(0);
-    const expense = byType.find((r) => r.type === 'expense')?._sum.amount ?? new Prisma.Decimal(0);
+    const income = byType.find((r) => r.tipo === 'RECEITA')?._sum.valor ?? new Prisma.Decimal(0);
+    const expense = byType.find((r) => r.tipo === 'DESPESA')?._sum.valor ?? new Prisma.Decimal(0);
 
-    const categoryIds = byCategory.map((c) => c.categoryId).filter(Boolean) as string[];
-    const categories = categoryIds.length
-      ? await this.prisma.category.findMany({ where: { id: { in: categoryIds }, userId } })
+    const categoryIds = byCategory.map((c) => c.idCategoria);
+    const categorias = categoryIds.length
+      ? await this.prisma.categoria.findMany({
+          where: { id: { in: categoryIds }, idUsuario: userId },
+        })
       : [];
 
     const expensesByCategory = byCategory.map((row) => {
-      const category = categories.find((c) => c.id === row.categoryId);
+      const categoria = categorias.find((c) => c.id === row.idCategoria);
       return {
-        categoryId: row.categoryId,
-        categoryName: category?.name ?? 'Sem categoria',
-        amount: row._sum.amount ?? new Prisma.Decimal(0),
+        categoryId: row.idCategoria,
+        categoryName: categoria?.nome ?? 'Sem categoria',
+        amount: row._sum.valor ?? new Prisma.Decimal(0),
       };
     });
 
-    let totalBalance = new Prisma.Decimal(0);
-    for (const account of accounts) {
-      const aggregates = await this.prisma.transaction.groupBy({
-        by: ['type'],
-        where: { accountId: account.id, deletedAt: null },
-        _sum: { amount: true },
-      });
-      let balance = new Prisma.Decimal(account.initialBalance);
-      for (const row of aggregates) {
-        const sum = row._sum.amount ?? new Prisma.Decimal(0);
-        if (row.type === 'income') balance = balance.add(sum);
-        if (row.type === 'expense') balance = balance.sub(sum);
-      }
-      totalBalance = totalBalance.add(balance);
-    }
+    const totalBalance = carteiras.reduce(
+      (acc, carteira) => acc.add(carteira.saldoAtual),
+      new Prisma.Decimal(0),
+    );
 
     return {
       period: { from, to },

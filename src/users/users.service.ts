@@ -7,26 +7,33 @@ export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getOrCreateMe(userId: string, email?: string) {
-    const existing = await this.prisma.profile.findUnique({ where: { id: userId } });
+    const existing = await this.prisma.usuario.findUnique({ where: { id: userId } });
     if (existing) {
+      if (email && !existing.email) {
+        return this.prisma.usuario.update({
+          where: { id: userId },
+          data: { email },
+        });
+      }
       return existing;
     }
 
-    return this.prisma.profile.create({
+    return this.prisma.usuario.create({
       data: {
         id: userId,
-        fullName: email?.split('@')[0] ?? null,
+        nome: email?.split('@')[0] ?? 'Usuario',
+        email: email ?? null,
       },
     });
   }
 
   async updateMe(userId: string, dto: UpdateProfileDto) {
     await this.getOrCreateMe(userId);
-    return this.prisma.profile.update({
+    return this.prisma.usuario.update({
       where: { id: userId },
       data: {
-        fullName: dto.fullName,
-        avatarUrl: dto.avatarUrl,
+        nome: dto.nome,
+        dataNascimento: dto.dataNascimento ? new Date(dto.dataNascimento) : undefined,
       },
     });
   }

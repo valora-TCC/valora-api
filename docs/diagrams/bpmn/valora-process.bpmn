@@ -1,0 +1,462 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions
+  xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  id="Definitions_Valora"
+  targetNamespace="https://valora.app/bpmn"
+  exporter="Valora"
+  exporterVersion="2.0">
+
+  <bpmn:collaboration id="Collaboration_Valora">
+    <bpmn:participant id="Participant_Usuario" name="Usuário" processRef="Process_Usuario"/>
+    <bpmn:participant id="Participant_Sistema" name="Sistema" processRef="Process_Sistema"/>
+  </bpmn:collaboration>
+
+  <!-- Fluxo principal: acesso, autenticação, dashboard e subprocessos -->
+  <bpmn:process id="Process_Usuario" name="Gestão financeira pessoal" isExecutable="false">
+    <bpmn:startEvent id="Start_Acesso" name="Acessa o sistema">
+      <bpmn:outgoing>Flow_ToPublic</bpmn:outgoing>
+    </bpmn:startEvent>
+
+    <bpmn:task id="Task_Publico" name="Visualizar informações públicas (taxas/moedas)">
+      <bpmn:incoming>Flow_ToPublic</bpmn:incoming>
+      <bpmn:outgoing>Flow_ToCheckAccount</bpmn:outgoing>
+    </bpmn:task>
+
+    <bpmn:exclusiveGateway id="Gw_PossuiConta" name="Possui conta?">
+      <bpmn:incoming>Flow_ToCheckAccount</bpmn:incoming>
+      <bpmn:outgoing>Flow_SemConta</bpmn:outgoing>
+      <bpmn:outgoing>Flow_ComConta</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:task id="Task_Cadastro" name="Realizar cadastro">
+      <bpmn:incoming>Flow_SemConta</bpmn:incoming>
+      <bpmn:outgoing>Flow_AposCadastro</bpmn:outgoing>
+    </bpmn:task>
+
+    <bpmn:task id="Task_Login" name="Realizar login">
+      <bpmn:incoming>Flow_ComConta</bpmn:incoming>
+      <bpmn:incoming>Flow_AposCadastro</bpmn:incoming>
+      <bpmn:incoming>Flow_RetryLogin</bpmn:incoming>
+      <bpmn:outgoing>Flow_ToValidar</bpmn:outgoing>
+    </bpmn:task>
+
+    <bpmn:task id="Task_Validar" name="Validar credenciais">
+      <bpmn:incoming>Flow_ToValidar</bpmn:incoming>
+      <bpmn:outgoing>Flow_ToLoginOk</bpmn:outgoing>
+    </bpmn:task>
+
+    <bpmn:exclusiveGateway id="Gw_LoginValido" name="Login válido?">
+      <bpmn:incoming>Flow_ToLoginOk</bpmn:incoming>
+      <bpmn:outgoing>Flow_LoginInvalido</bpmn:outgoing>
+      <bpmn:outgoing>Flow_LoginValido</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:task id="Task_ErroAcesso" name="Exibir erro de acesso">
+      <bpmn:incoming>Flow_LoginInvalido</bpmn:incoming>
+      <bpmn:outgoing>Flow_RetryLogin</bpmn:outgoing>
+    </bpmn:task>
+
+    <bpmn:task id="Task_Dashboard" name="Acessar dashboard">
+      <bpmn:incoming>Flow_LoginValido</bpmn:incoming>
+      <bpmn:incoming>Flow_RetornoSub</bpmn:incoming>
+      <bpmn:outgoing>Flow_Escolher</bpmn:outgoing>
+    </bpmn:task>
+
+    <bpmn:exclusiveGateway id="Gw_Escolher" name="Escolher funcionalidade">
+      <bpmn:incoming>Flow_Escolher</bpmn:incoming>
+      <bpmn:outgoing>Flow_ToCarteira</bpmn:outgoing>
+      <bpmn:outgoing>Flow_ToRelatorios</bpmn:outgoing>
+      <bpmn:outgoing>Flow_ToMetas</bpmn:outgoing>
+      <bpmn:outgoing>Flow_ToOrcamento</bpmn:outgoing>
+      <bpmn:outgoing>Flow_ToEdu</bpmn:outgoing>
+      <bpmn:outgoing>Flow_ToSim</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Sair</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:subProcess id="Sub_Carteira" name="Gerenciar Carteira">
+      <bpmn:incoming>Flow_ToCarteira</bpmn:incoming>
+      <bpmn:outgoing>Flow_FromCarteira</bpmn:outgoing>
+      <bpmn:startEvent id="Start_Carteira">
+        <bpmn:outgoing>Flow_C1</bpmn:outgoing>
+      </bpmn:startEvent>
+      <bpmn:exclusiveGateway id="Gw_TipoLancamento" name="Tipo de lançamento">
+        <bpmn:incoming>Flow_C1</bpmn:incoming>
+        <bpmn:outgoing>Flow_CReceita</bpmn:outgoing>
+        <bpmn:outgoing>Flow_CDespesa</bpmn:outgoing>
+      </bpmn:exclusiveGateway>
+      <bpmn:task id="Task_Receita" name="Adicionar receita">
+        <bpmn:incoming>Flow_CReceita</bpmn:incoming>
+        <bpmn:outgoing>Flow_CCat1</bpmn:outgoing>
+      </bpmn:task>
+      <bpmn:task id="Task_Despesa" name="Adicionar despesa">
+        <bpmn:incoming>Flow_CDespesa</bpmn:incoming>
+        <bpmn:outgoing>Flow_CCat2</bpmn:outgoing>
+      </bpmn:task>
+      <bpmn:task id="Task_Categoria" name="Selecionar categoria">
+        <bpmn:incoming>Flow_CCat1</bpmn:incoming>
+        <bpmn:incoming>Flow_CCat2</bpmn:incoming>
+        <bpmn:outgoing>Flow_CSave</bpmn:outgoing>
+      </bpmn:task>
+      <bpmn:task id="Task_SalvarLanc" name="Salvar lançamento">
+        <bpmn:incoming>Flow_CSave</bpmn:incoming>
+        <bpmn:outgoing>Flow_CSaldo</bpmn:outgoing>
+      </bpmn:task>
+      <bpmn:task id="Task_AtualizarSaldo" name="Atualizar saldo">
+        <bpmn:incoming>Flow_CSaldo</bpmn:incoming>
+        <bpmn:outgoing>Flow_CDash</bpmn:outgoing>
+      </bpmn:task>
+      <bpmn:task id="Task_AtualizarDashCarteira" name="Atualizar dashboard">
+        <bpmn:incoming>Flow_CDash</bpmn:incoming>
+        <bpmn:outgoing>Flow_CEnd</bpmn:outgoing>
+      </bpmn:task>
+      <bpmn:endEvent id="End_Carteira" name="Retornar ao dashboard">
+        <bpmn:incoming>Flow_CEnd</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_C1" sourceRef="Start_Carteira" targetRef="Gw_TipoLancamento"/>
+      <bpmn:sequenceFlow id="Flow_CReceita" name="Receita" sourceRef="Gw_TipoLancamento" targetRef="Task_Receita"/>
+      <bpmn:sequenceFlow id="Flow_CDespesa" name="Despesa" sourceRef="Gw_TipoLancamento" targetRef="Task_Despesa"/>
+      <bpmn:sequenceFlow id="Flow_CCat1" sourceRef="Task_Receita" targetRef="Task_Categoria"/>
+      <bpmn:sequenceFlow id="Flow_CCat2" sourceRef="Task_Despesa" targetRef="Task_Categoria"/>
+      <bpmn:sequenceFlow id="Flow_CSave" sourceRef="Task_Categoria" targetRef="Task_SalvarLanc"/>
+      <bpmn:sequenceFlow id="Flow_CSaldo" sourceRef="Task_SalvarLanc" targetRef="Task_AtualizarSaldo"/>
+      <bpmn:sequenceFlow id="Flow_CDash" sourceRef="Task_AtualizarSaldo" targetRef="Task_AtualizarDashCarteira"/>
+      <bpmn:sequenceFlow id="Flow_CEnd" sourceRef="Task_AtualizarDashCarteira" targetRef="End_Carteira"/>
+    </bpmn:subProcess>
+
+    <bpmn:subProcess id="Sub_Relatorios" name="Relatórios e Gráficos">
+      <bpmn:incoming>Flow_ToRelatorios</bpmn:incoming>
+      <bpmn:outgoing>Flow_FromRelatorios</bpmn:outgoing>
+      <bpmn:startEvent id="Start_Rel">
+        <bpmn:outgoing>Flow_R1</bpmn:outgoing>
+      </bpmn:startEvent>
+      <bpmn:task id="Task_Periodo" name="Selecionar período">
+        <bpmn:incoming>Flow_R1</bpmn:incoming>
+        <bpmn:outgoing>Flow_R2</bpmn:outgoing>
+      </bpmn:task>
+      <bpmn:task id="Task_Buscar" name="Buscar dados">
+        <bpmn:incoming>Flow_R2</bpmn:incoming>
+        <bpmn:outgoing>Flow_R3</bpmn:outgoing>
+      </bpmn:task>
+      <bpmn:task id="Task_Graficos" name="Gerar gráficos">
+        <bpmn:incoming>Flow_R3</bpmn:incoming>
+        <bpmn:outgoing>Flow_R4</bpmn:outgoing>
+      </bpmn:task>
+      <bpmn:task id="Task_ExibirRel" name="Exibir relatórios">
+        <bpmn:incoming>Flow_R4</bpmn:incoming>
+        <bpmn:outgoing>Flow_R5</bpmn:outgoing>
+      </bpmn:task>
+      <bpmn:endEvent id="End_Rel" name="Retornar ao dashboard">
+        <bpmn:incoming>Flow_R5</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_R1" sourceRef="Start_Rel" targetRef="Task_Periodo"/>
+      <bpmn:sequenceFlow id="Flow_R2" sourceRef="Task_Periodo" targetRef="Task_Buscar"/>
+      <bpmn:sequenceFlow id="Flow_R3" sourceRef="Task_Buscar" targetRef="Task_Graficos"/>
+      <bpmn:sequenceFlow id="Flow_R4" sourceRef="Task_Graficos" targetRef="Task_ExibirRel"/>
+      <bpmn:sequenceFlow id="Flow_R5" sourceRef="Task_ExibirRel" targetRef="End_Rel"/>
+    </bpmn:subProcess>
+
+    <bpmn:subProcess id="Sub_Metas" name="Metas">
+      <bpmn:incoming>Flow_ToMetas</bpmn:incoming>
+      <bpmn:outgoing>Flow_FromMetas</bpmn:outgoing>
+      <bpmn:startEvent id="Start_Meta">
+        <bpmn:outgoing>Flow_M1</bpmn:outgoing>
+      </bpmn:startEvent>
+      <bpmn:task id="Task_CriarMeta" name="Criar meta">
+        <bpmn:incoming>Flow_M1</bpmn:incoming>
+        <bpmn:outgoing>Flow_M2</bpmn:outgoing>
+      </bpmn:task>
+      <bpmn:task id="Task_DefValor" name="Definir valor">
+        <bpmn:incoming>Flow_M2</bpmn:incoming>
+        <bpmn:outgoing>Flow_M3</bpmn:outgoing>
+      </bpmn:task>
+      <bpmn:task id="Task_DefPrazo" name="Definir prazo">
+        <bpmn:incoming>Flow_M3</bpmn:incoming>
+        <bpmn:outgoing>Flow_M4</bpmn:outgoing>
+      </bpmn:task>
+      <bpmn:task id="Task_SalvarMeta" name="Salvar meta">
+        <bpmn:incoming>Flow_M4</bpmn:incoming>
+        <bpmn:outgoing>Flow_M5</bpmn:outgoing>
+      </bpmn:task>
+      <bpmn:task id="Task_AcompProg" name="Acompanhar progresso">
+        <bpmn:incoming>Flow_M5</bpmn:incoming>
+        <bpmn:outgoing>Flow_M6</bpmn:outgoing>
+      </bpmn:task>
+      <bpmn:endEvent id="End_Meta" name="Retornar ao dashboard">
+        <bpmn:incoming>Flow_M6</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_M1" sourceRef="Start_Meta" targetRef="Task_CriarMeta"/>
+      <bpmn:sequenceFlow id="Flow_M2" sourceRef="Task_CriarMeta" targetRef="Task_DefValor"/>
+      <bpmn:sequenceFlow id="Flow_M3" sourceRef="Task_DefValor" targetRef="Task_DefPrazo"/>
+      <bpmn:sequenceFlow id="Flow_M4" sourceRef="Task_DefPrazo" targetRef="Task_SalvarMeta"/>
+      <bpmn:sequenceFlow id="Flow_M5" sourceRef="Task_SalvarMeta" targetRef="Task_AcompProg"/>
+      <bpmn:sequenceFlow id="Flow_M6" sourceRef="Task_AcompProg" targetRef="End_Meta"/>
+    </bpmn:subProcess>
+
+    <bpmn:subProcess id="Sub_Orcamento" name="Orçamento Mensal">
+      <bpmn:incoming>Flow_ToOrcamento</bpmn:incoming>
+      <bpmn:outgoing>Flow_FromOrcamento</bpmn:outgoing>
+      <bpmn:startEvent id="Start_Orc">
+        <bpmn:outgoing>Flow_O1</bpmn:outgoing>
+      </bpmn:startEvent>
+      <bpmn:task id="Task_CriarOrc" name="Criar orçamento">
+        <bpmn:incoming>Flow_O1</bpmn:incoming>
+        <bpmn:outgoing>Flow_O2</bpmn:outgoing>
+      </bpmn:task>
+      <bpmn:task id="Task_DefCats" name="Definir categorias">
+        <bpmn:incoming>Flow_O2</bpmn:incoming>
+        <bpmn:outgoing>Flow_O3</bpmn:outgoing>
+      </bpmn:task>
+      <bpmn:task id="Task_DefLimites" name="Definir limites">
+        <bpmn:incoming>Flow_O3</bpmn:incoming>
+        <bpmn:outgoing>Flow_O4</bpmn:outgoing>
+      </bpmn:task>
+      <bpmn:task id="Task_CompararGastos" name="Sistema compara gastos">
+        <bpmn:incoming>Flow_O4</bpmn:incoming>
+        <bpmn:outgoing>Flow_O5</bpmn:outgoing>
+      </bpmn:task>
+      <bpmn:task id="Task_ExibirStatus" name="Exibir status">
+        <bpmn:incoming>Flow_O5</bpmn:incoming>
+        <bpmn:outgoing>Flow_O6</bpmn:outgoing>
+      </bpmn:task>
+      <bpmn:endEvent id="End_Orc" name="Retornar ao dashboard">
+        <bpmn:incoming>Flow_O6</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_O1" sourceRef="Start_Orc" targetRef="Task_CriarOrc"/>
+      <bpmn:sequenceFlow id="Flow_O2" sourceRef="Task_CriarOrc" targetRef="Task_DefCats"/>
+      <bpmn:sequenceFlow id="Flow_O3" sourceRef="Task_DefCats" targetRef="Task_DefLimites"/>
+      <bpmn:sequenceFlow id="Flow_O4" sourceRef="Task_DefLimites" targetRef="Task_CompararGastos"/>
+      <bpmn:sequenceFlow id="Flow_O5" sourceRef="Task_CompararGastos" targetRef="Task_ExibirStatus"/>
+      <bpmn:sequenceFlow id="Flow_O6" sourceRef="Task_ExibirStatus" targetRef="End_Orc"/>
+    </bpmn:subProcess>
+
+    <bpmn:subProcess id="Sub_Edu" name="Conteúdo Educativo">
+      <bpmn:incoming>Flow_ToEdu</bpmn:incoming>
+      <bpmn:outgoing>Flow_FromEdu</bpmn:outgoing>
+      <bpmn:startEvent id="Start_Edu">
+        <bpmn:outgoing>Flow_E1</bpmn:outgoing>
+      </bpmn:startEvent>
+      <bpmn:task id="Task_AreaEdu" name="Acessar área educativa">
+        <bpmn:incoming>Flow_E1</bpmn:incoming>
+        <bpmn:outgoing>Flow_E2</bpmn:outgoing>
+      </bpmn:task>
+      <bpmn:task id="Task_ListarEdu" name="Listar conteúdos">
+        <bpmn:incoming>Flow_E2</bpmn:incoming>
+        <bpmn:outgoing>Flow_E3</bpmn:outgoing>
+      </bpmn:task>
+      <bpmn:task id="Task_SelEdu" name="Selecionar conteúdo">
+        <bpmn:incoming>Flow_E3</bpmn:incoming>
+        <bpmn:outgoing>Flow_E4</bpmn:outgoing>
+      </bpmn:task>
+      <bpmn:task id="Task_VerEdu" name="Visualizar conteúdo">
+        <bpmn:incoming>Flow_E4</bpmn:incoming>
+        <bpmn:outgoing>Flow_E5</bpmn:outgoing>
+      </bpmn:task>
+      <bpmn:endEvent id="End_Edu" name="Retornar ao dashboard">
+        <bpmn:incoming>Flow_E5</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_E1" sourceRef="Start_Edu" targetRef="Task_AreaEdu"/>
+      <bpmn:sequenceFlow id="Flow_E2" sourceRef="Task_AreaEdu" targetRef="Task_ListarEdu"/>
+      <bpmn:sequenceFlow id="Flow_E3" sourceRef="Task_ListarEdu" targetRef="Task_SelEdu"/>
+      <bpmn:sequenceFlow id="Flow_E4" sourceRef="Task_SelEdu" targetRef="Task_VerEdu"/>
+      <bpmn:sequenceFlow id="Flow_E5" sourceRef="Task_VerEdu" targetRef="End_Edu"/>
+    </bpmn:subProcess>
+
+    <bpmn:subProcess id="Sub_Sim" name="Simulação de Juros">
+      <bpmn:incoming>Flow_ToSim</bpmn:incoming>
+      <bpmn:outgoing>Flow_FromSim</bpmn:outgoing>
+      <bpmn:startEvent id="Start_Sim">
+        <bpmn:outgoing>Flow_S1</bpmn:outgoing>
+      </bpmn:startEvent>
+      <bpmn:task id="Task_Valor" name="Inserir valor">
+        <bpmn:incoming>Flow_S1</bpmn:incoming>
+        <bpmn:outgoing>Flow_S2</bpmn:outgoing>
+      </bpmn:task>
+      <bpmn:task id="Task_Taxa" name="Inserir taxa">
+        <bpmn:incoming>Flow_S2</bpmn:incoming>
+        <bpmn:outgoing>Flow_S3</bpmn:outgoing>
+      </bpmn:task>
+      <bpmn:task id="Task_Tempo" name="Inserir tempo">
+        <bpmn:incoming>Flow_S3</bpmn:incoming>
+        <bpmn:outgoing>Flow_S4</bpmn:outgoing>
+      </bpmn:task>
+      <bpmn:task id="Task_Calcular" name="Calcular juros">
+        <bpmn:incoming>Flow_S4</bpmn:incoming>
+        <bpmn:outgoing>Flow_S5</bpmn:outgoing>
+      </bpmn:task>
+      <bpmn:task id="Task_Resultado" name="Exibir resultado">
+        <bpmn:incoming>Flow_S5</bpmn:incoming>
+        <bpmn:outgoing>Flow_S6</bpmn:outgoing>
+      </bpmn:task>
+      <bpmn:endEvent id="End_Sim" name="Retornar ao dashboard">
+        <bpmn:incoming>Flow_S6</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_S1" sourceRef="Start_Sim" targetRef="Task_Valor"/>
+      <bpmn:sequenceFlow id="Flow_S2" sourceRef="Task_Valor" targetRef="Task_Taxa"/>
+      <bpmn:sequenceFlow id="Flow_S3" sourceRef="Task_Taxa" targetRef="Task_Tempo"/>
+      <bpmn:sequenceFlow id="Flow_S4" sourceRef="Task_Tempo" targetRef="Task_Calcular"/>
+      <bpmn:sequenceFlow id="Flow_S5" sourceRef="Task_Calcular" targetRef="Task_Resultado"/>
+      <bpmn:sequenceFlow id="Flow_S6" sourceRef="Task_Resultado" targetRef="End_Sim"/>
+    </bpmn:subProcess>
+
+    <bpmn:endEvent id="End_Sair" name="Sair do sistema">
+      <bpmn:incoming>Flow_Sair</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:exclusiveGateway id="Gw_Retorno" name="Retorno ao dashboard">
+      <bpmn:incoming>Flow_FromCarteira</bpmn:incoming>
+      <bpmn:incoming>Flow_FromRelatorios</bpmn:incoming>
+      <bpmn:incoming>Flow_FromMetas</bpmn:incoming>
+      <bpmn:incoming>Flow_FromOrcamento</bpmn:incoming>
+      <bpmn:incoming>Flow_FromEdu</bpmn:incoming>
+      <bpmn:incoming>Flow_FromSim</bpmn:incoming>
+      <bpmn:outgoing>Flow_RetornoSub</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:sequenceFlow id="Flow_ToPublic" sourceRef="Start_Acesso" targetRef="Task_Publico"/>
+    <bpmn:sequenceFlow id="Flow_ToCheckAccount" sourceRef="Task_Publico" targetRef="Gw_PossuiConta"/>
+    <bpmn:sequenceFlow id="Flow_SemConta" name="Não" sourceRef="Gw_PossuiConta" targetRef="Task_Cadastro"/>
+    <bpmn:sequenceFlow id="Flow_ComConta" name="Sim" sourceRef="Gw_PossuiConta" targetRef="Task_Login"/>
+    <bpmn:sequenceFlow id="Flow_AposCadastro" sourceRef="Task_Cadastro" targetRef="Task_Login"/>
+    <bpmn:sequenceFlow id="Flow_ToValidar" sourceRef="Task_Login" targetRef="Task_Validar"/>
+    <bpmn:sequenceFlow id="Flow_ToLoginOk" sourceRef="Task_Validar" targetRef="Gw_LoginValido"/>
+    <bpmn:sequenceFlow id="Flow_LoginInvalido" name="Inválido" sourceRef="Gw_LoginValido" targetRef="Task_ErroAcesso"/>
+    <bpmn:sequenceFlow id="Flow_LoginValido" name="Válido" sourceRef="Gw_LoginValido" targetRef="Task_Dashboard"/>
+    <bpmn:sequenceFlow id="Flow_RetryLogin" sourceRef="Task_ErroAcesso" targetRef="Task_Login"/>
+    <bpmn:sequenceFlow id="Flow_Escolher" sourceRef="Task_Dashboard" targetRef="Gw_Escolher"/>
+    <bpmn:sequenceFlow id="Flow_ToCarteira" name="Carteira" sourceRef="Gw_Escolher" targetRef="Sub_Carteira"/>
+    <bpmn:sequenceFlow id="Flow_ToRelatorios" name="Relatórios" sourceRef="Gw_Escolher" targetRef="Sub_Relatorios"/>
+    <bpmn:sequenceFlow id="Flow_ToMetas" name="Metas" sourceRef="Gw_Escolher" targetRef="Sub_Metas"/>
+    <bpmn:sequenceFlow id="Flow_ToOrcamento" name="Orçamento" sourceRef="Gw_Escolher" targetRef="Sub_Orcamento"/>
+    <bpmn:sequenceFlow id="Flow_ToEdu" name="Educação" sourceRef="Gw_Escolher" targetRef="Sub_Edu"/>
+    <bpmn:sequenceFlow id="Flow_ToSim" name="Simulação" sourceRef="Gw_Escolher" targetRef="Sub_Sim"/>
+    <bpmn:sequenceFlow id="Flow_Sair" name="Sair" sourceRef="Gw_Escolher" targetRef="End_Sair"/>
+    <bpmn:sequenceFlow id="Flow_FromCarteira" sourceRef="Sub_Carteira" targetRef="Gw_Retorno"/>
+    <bpmn:sequenceFlow id="Flow_FromRelatorios" sourceRef="Sub_Relatorios" targetRef="Gw_Retorno"/>
+    <bpmn:sequenceFlow id="Flow_FromMetas" sourceRef="Sub_Metas" targetRef="Gw_Retorno"/>
+    <bpmn:sequenceFlow id="Flow_FromOrcamento" sourceRef="Sub_Orcamento" targetRef="Gw_Retorno"/>
+    <bpmn:sequenceFlow id="Flow_FromEdu" sourceRef="Sub_Edu" targetRef="Gw_Retorno"/>
+    <bpmn:sequenceFlow id="Flow_FromSim" sourceRef="Sub_Sim" targetRef="Gw_Retorno"/>
+    <bpmn:sequenceFlow id="Flow_RetornoSub" sourceRef="Gw_Retorno" targetRef="Task_Dashboard"/>
+  </bpmn:process>
+
+  <!-- Processo paralelo: verificação a cada 24 horas -->
+  <bpmn:process id="Process_Sistema" name="Notificações automáticas" isExecutable="false">
+    <bpmn:startEvent id="Start_Timer24h" name="A cada 24 horas">
+      <bpmn:outgoing>Flow_N1</bpmn:outgoing>
+      <bpmn:timerEventDefinition id="Timer_24h">
+        <bpmn:timeCycle xsi:type="bpmn:tFormalExpression">R/PT24H</bpmn:timeCycle>
+      </bpmn:timerEventDefinition>
+    </bpmn:startEvent>
+    <bpmn:task id="Task_VerificarVencendo" name="Verificar contas próximas do vencimento">
+      <bpmn:incoming>Flow_N1</bpmn:incoming>
+      <bpmn:outgoing>Flow_N2</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:exclusiveGateway id="Gw_HaVencendo" name="Há contas vencendo?">
+      <bpmn:incoming>Flow_N2</bpmn:incoming>
+      <bpmn:outgoing>Flow_NSim</bpmn:outgoing>
+      <bpmn:outgoing>Flow_NNao</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:task id="Task_EnviarNotif" name="Enviar notificação ao usuário">
+      <bpmn:incoming>Flow_NSim</bpmn:incoming>
+      <bpmn:outgoing>Flow_N3</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:endEvent id="End_NotifEnviada" name="Notificação enviada">
+      <bpmn:incoming>Flow_N3</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:endEvent id="End_SemNotif" name="Nenhuma notificação">
+      <bpmn:incoming>Flow_NNao</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_N1" sourceRef="Start_Timer24h" targetRef="Task_VerificarVencendo"/>
+    <bpmn:sequenceFlow id="Flow_N2" sourceRef="Task_VerificarVencendo" targetRef="Gw_HaVencendo"/>
+    <bpmn:sequenceFlow id="Flow_NSim" name="Sim" sourceRef="Gw_HaVencendo" targetRef="Task_EnviarNotif"/>
+    <bpmn:sequenceFlow id="Flow_NNao" name="Não" sourceRef="Gw_HaVencendo" targetRef="End_SemNotif"/>
+    <bpmn:sequenceFlow id="Flow_N3" sourceRef="Task_EnviarNotif" targetRef="End_NotifEnviada"/>
+  </bpmn:process>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_Valora">
+    <bpmndi:BPMNPlane id="BPMNPlane_Valora" bpmnElement="Collaboration_Valora">
+      <bpmndi:BPMNShape id="Shape_Usuario" bpmnElement="Participant_Usuario" isHorizontal="true">
+        <dc:Bounds x="120" y="80" width="1400" height="380"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Sistema" bpmnElement="Participant_Sistema" isHorizontal="true">
+        <dc:Bounds x="120" y="500" width="1400" height="200"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Start" bpmnElement="Start_Acesso">
+        <dc:Bounds x="160" y="232" width="36" height="36"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Publico" bpmnElement="Task_Publico">
+        <dc:Bounds x="230" y="210" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_GwConta" bpmnElement="Gw_PossuiConta" isMarkerVisible="true">
+        <dc:Bounds x="390" y="225" width="50" height="50"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Cadastro" bpmnElement="Task_Cadastro">
+        <dc:Bounds x="470" y="120" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Login" bpmnElement="Task_Login">
+        <dc:Bounds x="600" y="210" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Validar" bpmnElement="Task_Validar">
+        <dc:Bounds x="740" y="210" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_GwLogin" bpmnElement="Gw_LoginValido" isMarkerVisible="true">
+        <dc:Bounds x="880" y="225" width="50" height="50"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Erro" bpmnElement="Task_ErroAcesso">
+        <dc:Bounds x="850" y="330" width="110" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Dash" bpmnElement="Task_Dashboard">
+        <dc:Bounds x="980" y="210" width="110" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Escolher" bpmnElement="Gw_Escolher" isMarkerVisible="true">
+        <dc:Bounds x="1130" y="225" width="50" height="50"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Carteira" bpmnElement="Sub_Carteira" isExpanded="false">
+        <dc:Bounds x="1220" y="100" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Rel" bpmnElement="Sub_Relatorios" isExpanded="false">
+        <dc:Bounds x="1360" y="100" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Metas" bpmnElement="Sub_Metas" isExpanded="false">
+        <dc:Bounds x="1220" y="200" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Orc" bpmnElement="Sub_Orcamento" isExpanded="false">
+        <dc:Bounds x="1360" y="200" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Edu" bpmnElement="Sub_Edu" isExpanded="false">
+        <dc:Bounds x="1220" y="300" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Sim" bpmnElement="Sub_Sim" isExpanded="false">
+        <dc:Bounds x="1360" y="300" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Retorno" bpmnElement="Gw_Retorno" isMarkerVisible="true">
+        <dc:Bounds x="1130" y="340" width="50" height="50"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Sair" bpmnElement="End_Sair">
+        <dc:Bounds x="1137" y="140" width="36" height="36"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Timer" bpmnElement="Start_Timer24h">
+        <dc:Bounds x="180" y="572" width="36" height="36"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Verificar" bpmnElement="Task_VerificarVencendo">
+        <dc:Bounds x="260" y="550" width="160" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_GwVenc" bpmnElement="Gw_HaVencendo" isMarkerVisible="true">
+        <dc:Bounds x="470" y="565" width="50" height="50"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Enviar" bpmnElement="Task_EnviarNotif">
+        <dc:Bounds x="570" y="550" width="140" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_EndNotif" bpmnElement="End_NotifEnviada">
+        <dc:Bounds x="750" y="572" width="36" height="36"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_EndSem" bpmnElement="End_SemNotif">
+        <dc:Bounds x="477" y="650" width="36" height="36"/>
+      </bpmndi:BPMNShape>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

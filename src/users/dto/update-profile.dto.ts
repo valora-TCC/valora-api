@@ -1,13 +1,12 @@
-import { IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsDateString, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class UpdateProfileDto {
   @IsOptional()
   @IsString()
   @MaxLength(120)
-  fullName?: string;
+  nome?: string;
 
   @IsOptional()
-  @IsString()
-  @MaxLength(500)
-  avatarUrl?: string;
+  @IsDateString()
+  dataNascimento?: string;
 }
