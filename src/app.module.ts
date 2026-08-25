@@ -15,6 +15,7 @@ import { OrcamentosModule } from './orcamentos/orcamentos.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { InvestmentsModule } from './investments/investments.module';
 import { NotificacoesModule } from './notificacoes/notificacoes.module';
+import { MarketModule } from './market/market.module';
 import { validateEnv } from './config/env.validation';
 
 @Module({
@@ -36,6 +37,7 @@ import { validateEnv } from './config/env.validation';
     DashboardModule,
     InvestmentsModule,
     NotificacoesModule,
+    MarketModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
