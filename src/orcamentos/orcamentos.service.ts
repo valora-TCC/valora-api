@@ -38,7 +38,10 @@ export class OrcamentosService {
   async create(userId: string, dto: CreateOrcamentoDto) {
     await this.usersService.getOrCreateMe(userId);
     if (dto.categorias?.length) {
-      await this.assertCategorias(userId, dto.categorias.map((c) => c.idCategoria));
+      await this.assertCategorias(
+        userId,
+        dto.categorias.map((c) => c.idCategoria),
+      );
     }
 
     const orcamento = await this.prisma.orcamento.create({
@@ -165,17 +168,26 @@ export class OrcamentosService {
 
   private async withStatus(
     userId: string,
-    orcamento: Prisma.OrcamentoGetPayload<{ include: { categorias: { include: { categoria: true } } } }>,
+    orcamento: Prisma.OrcamentoGetPayload<{
+      include: { categorias: { include: { categoria: true } } };
+    }>,
   ) {
     const categorias = await Promise.all(
       orcamento.categorias.map(async (item) => {
-        const valorGasto = await this.sumDespesas(userId, item.idCategoria, orcamento.mes, orcamento.ano);
+        const valorGasto = await this.sumDespesas(
+          userId,
+          item.idCategoria,
+          orcamento.mes,
+          orcamento.ano,
+        );
         await this.prisma.orcamentoCategoria.update({
           where: { id: item.id },
           data: { valorGasto },
         });
         const limite = new Prisma.Decimal(item.limite);
-        const percentual = limite.equals(0) ? 0 : Number(valorGasto.div(limite).mul(100).toFixed(2));
+        const percentual = limite.equals(0)
+          ? 0
+          : Number(valorGasto.div(limite).mul(100).toFixed(2));
         return {
           ...item,
           valorGasto,

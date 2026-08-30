@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import type {
   AwesomeQuote,
   BcbSerieItem,
+  CoinGeckoPriceMap,
   MarketMoedaDto,
   MarketNoticiaDto,
   MarketSummaryDto,
@@ -12,22 +13,51 @@ import type {
 } from './market.types';
 
 const SYNC_MAX_AGE_MS = 60 * 60 * 1000;
-const AWESOME_PAIRS = 'USD-BRL,EUR-BRL,GBP-BRL,BTC-BRL';
-const AWESOME_URL = `https://economia.awesomeapi.com.br/json/last/${AWESOME_PAIRS}`;
+const LIVE_QUOTES_TTL_MS = 2 * 60 * 1000;
 
-const CURRENCY_META: Record<string, { nome: string; simbolo: string }> = {
+const FIAT_META: Record<string, { nome: string; simbolo: string }> = {
   USD: { nome: 'Dólar americano', simbolo: 'US$' },
   EUR: { nome: 'Euro', simbolo: '€' },
   GBP: { nome: 'Libra esterlina', simbolo: '£' },
-  BTC: { nome: 'Bitcoin', simbolo: '₿' },
-  BRL: { nome: 'Real brasileiro', simbolo: 'R$' },
+  CAD: { nome: 'Dólar canadense', simbolo: 'C$' },
+  AUD: { nome: 'Dólar australiano', simbolo: 'A$' },
+  CHF: { nome: 'Franco suíço', simbolo: 'CHF' },
+  JPY: { nome: 'Iene japonês', simbolo: '¥' },
+  CNY: { nome: 'Yuan chinês', simbolo: '¥' },
+  ARS: { nome: 'Peso argentino', simbolo: 'AR$' },
+  MXN: { nome: 'Peso mexicano', simbolo: 'MX$' },
+  CLP: { nome: 'Peso chileno', simbolo: 'CL$' },
+  PEN: { nome: 'Sol peruano', simbolo: 'S/' },
 };
 
-/** BCB SGS: 432 = Selic meta (% a.a.), 12 = CDI (% a.a.) */
-const BCB_SERIES = [
-  { codigo: 432, nome: 'SELIC' },
-  { codigo: 12, nome: 'CDI' },
+const CRYPTO_META = [
+  { id: 'bitcoin', codigo: 'BTC', nome: 'Bitcoin', simbolo: '₿' },
+  { id: 'ethereum', codigo: 'ETH', nome: 'Ethereum', simbolo: 'Ξ' },
+  { id: 'solana', codigo: 'SOL', nome: 'Solana', simbolo: 'SOL' },
+  { id: 'ripple', codigo: 'XRP', nome: 'XRP', simbolo: 'XRP' },
+  { id: 'cardano', codigo: 'ADA', nome: 'Cardano', simbolo: 'ADA' },
+  { id: 'dogecoin', codigo: 'DOGE', nome: 'Dogecoin', simbolo: 'Ð' },
+  { id: 'binancecoin', codigo: 'BNB', nome: 'BNB', simbolo: 'BNB' },
+  { id: 'polkadot', codigo: 'DOT', nome: 'Polkadot', simbolo: 'DOT' },
 ] as const;
+
+const FIAT_CODES = Object.keys(FIAT_META);
+const CRYPTO_CODES: string[] = CRYPTO_META.map((c) => c.codigo);
+const MARKET_CODES = [...FIAT_CODES, ...CRYPTO_CODES];
+const AWESOME_PAIRS = FIAT_CODES.map((c) => `${c}-BRL`).join(',');
+const AWESOME_URL = `https://economia.awesomeapi.com.br/json/last/${AWESOME_PAIRS}`;
+const COINGECKO_URL = `https://api.coingecko.com/api/v3/simple/price?ids=${CRYPTO_META.map((c) => c.id).join(',')}&vs_currencies=brl&include_24hr_change=true`;
+
+/** BCB SGS — fontes: api.bcb.gov.br */
+const BCB_SERIES = [
+  { codigo: 432, nome: 'SELIC', periodo: 'aa' as const },
+  { codigo: 12, nome: 'CDI', periodo: 'aa' as const },
+  { codigo: 433, nome: 'IPCA', periodo: 'mensal' as const },
+  { codigo: 189, nome: 'IGPM', periodo: 'mensal' as const },
+  { codigo: 196, nome: 'POUPANCA', periodo: 'mensal' as const },
+] as const;
+
+const TAXA_NAMES = [...BCB_SERIES.map((s) => s.nome), 'CDB'];
 
 const NEWS_FEEDS = [
   { url: 'https://www.infomoney.com.br/feed/', fonte: 'InfoMoney' },
@@ -43,6 +73,7 @@ export class MarketService {
     { pctChange: number | null; high: number | null; low: number | null }
   >();
   private newsCache: { items: MarketNoticiaDto[]; fetchedAt: number } | null = null;
+  private liveQuotesFetchedAt = 0;
   private readonly xmlParser = new XMLParser({
     ignoreAttributes: false,
     attributeNamePrefix: '@_',
@@ -52,20 +83,21 @@ export class MarketService {
 
   async getSummary(): Promise<MarketSummaryDto> {
     await this.ensureFreshData();
+    await this.ensureLiveQuotes();
 
     const [moedasDb, taxasDb, noticias] = await Promise.all([
       this.prisma.moeda.findMany({
-        where: { codigo: { in: ['USD', 'EUR', 'GBP', 'BTC'] } },
+        where: { codigo: { in: MARKET_CODES } },
         orderBy: { codigo: 'asc' },
       }),
       this.prisma.taxa.findMany({
-        where: { nome: { in: ['SELIC', 'CDI', 'CDB'] } },
+        where: { nome: { in: TAXA_NAMES } },
         orderBy: { nome: 'asc' },
       }),
       this.fetchNews(),
     ]);
 
-    const moedas: MarketMoedaDto[] = moedasDb.map((m) => {
+    const mapMoeda = (m: (typeof moedasDb)[number]): MarketMoedaDto => {
       const live = this.lastLiveQuotes.get(m.codigo);
       return {
         codigo: m.codigo,
@@ -77,7 +109,7 @@ export class MarketService {
         low: live?.low ?? null,
         dataAtualizacao: m.dataAtualizacao.toISOString(),
       };
-    });
+    };
 
     const taxas: MarketTaxaDto[] = taxasDb.map((t) => ({
       nome: t.nome,
@@ -85,11 +117,23 @@ export class MarketService {
       fonte: t.fonte,
       dataAtualizacao: t.dataAtualizacao.toISOString(),
       referencia: t.nome === 'CDB' || t.fonte === 'referencia',
+      periodo: this.taxaPeriodo(t.nome),
     }));
 
     return {
-      moedas,
-      taxas,
+      cambio: {
+        moedas: this.sortMoedas(
+          moedasDb.filter((m) => FIAT_CODES.includes(m.codigo)).map(mapMoeda),
+          FIAT_CODES,
+        ),
+      },
+      cripto: {
+        moedas: this.sortMoedas(
+          moedasDb.filter((m) => CRYPTO_CODES.includes(m.codigo)).map(mapMoeda),
+          CRYPTO_CODES,
+        ),
+      },
+      taxas: { taxas: this.sortTaxas(taxas) },
       noticias,
       atualizadoEm: new Date().toISOString(),
     };
@@ -105,6 +149,11 @@ export class MarketService {
     }
   }
 
+  private taxaPeriodo(nome: string): 'aa' | 'mensal' {
+    const serie = BCB_SERIES.find((s) => s.nome === nome);
+    return serie?.periodo ?? 'aa';
+  }
+
   private async ensureFreshData(): Promise<void> {
     const stale = await this.isStale();
     if (!stale) return;
@@ -116,12 +165,18 @@ export class MarketService {
   }
 
   private async isStale(): Promise<boolean> {
-    const latest = await this.prisma.moeda.findFirst({
-      where: { codigo: { in: ['USD', 'EUR', 'GBP', 'BTC'] } },
-      orderBy: { dataAtualizacao: 'desc' },
-      select: { dataAtualizacao: true },
-    });
-    if (!latest) return true;
+    const [latest, count] = await Promise.all([
+      this.prisma.moeda.findFirst({
+        where: { codigo: { in: MARKET_CODES } },
+        orderBy: { dataAtualizacao: 'desc' },
+        select: { dataAtualizacao: true },
+      }),
+      this.prisma.moeda.count({
+        where: { codigo: { in: MARKET_CODES } },
+      }),
+    ]);
+
+    if (!latest || count < MARKET_CODES.length) return true;
     return Date.now() - latest.dataAtualizacao.getTime() > SYNC_MAX_AGE_MS;
   }
 
@@ -129,7 +184,7 @@ export class MarketService {
     if (this.syncing) return this.syncing;
     this.syncing = (async () => {
       await this.ensureBrl();
-      await Promise.all([this.syncMoedas(), this.syncTaxas()]);
+      await Promise.all([this.syncFiatMoedas(), this.syncCryptoMoedas(), this.syncTaxas()]);
     })().finally(() => {
       this.syncing = null;
     });
@@ -141,15 +196,98 @@ export class MarketService {
       where: { codigo: 'BRL' },
       create: {
         codigo: 'BRL',
-        nome: CURRENCY_META.BRL.nome,
-        simbolo: CURRENCY_META.BRL.simbolo,
+        nome: 'Real brasileiro',
+        simbolo: 'R$',
         taxaParaReal: 1,
       },
       update: {},
     });
   }
 
-  private async syncMoedas(): Promise<void> {
+  private sortMoedas(moedas: MarketMoedaDto[], order: readonly string[]): MarketMoedaDto[] {
+    const rank = new Map(order.map((code, index) => [code, index]));
+    return [...moedas].sort(
+      (a, b) =>
+        (rank.get(a.codigo) ?? Number.MAX_SAFE_INTEGER) -
+        (rank.get(b.codigo) ?? Number.MAX_SAFE_INTEGER),
+    );
+  }
+
+  private sortTaxas(taxas: MarketTaxaDto[]): MarketTaxaDto[] {
+    const rank = new Map(TAXA_NAMES.map((nome, index) => [nome, index]));
+    return [...taxas].sort(
+      (a, b) =>
+        (rank.get(a.nome) ?? Number.MAX_SAFE_INTEGER) -
+        (rank.get(b.nome) ?? Number.MAX_SAFE_INTEGER),
+    );
+  }
+
+  private async ensureLiveQuotes(): Promise<void> {
+    const fresh =
+      this.lastLiveQuotes.size > 0 && Date.now() - this.liveQuotesFetchedAt < LIVE_QUOTES_TTL_MS;
+    if (fresh) return;
+    await Promise.all([this.fetchFiatLiveQuotes(), this.fetchCryptoLiveQuotes()]);
+    this.liveQuotesFetchedAt = Date.now();
+  }
+
+  private async fetchFiatLiveQuotes(): Promise<void> {
+    try {
+      const response = await fetch(AWESOME_URL, {
+        headers: { Accept: 'application/json' },
+        signal: AbortSignal.timeout(12_000),
+      });
+      if (!response.ok) return;
+      this.applyAwesomeQuotes((await response.json()) as Record<string, AwesomeQuote>);
+    } catch (error) {
+      this.logger.warn(`Fiat live quotes failed: ${String(error)}`);
+    }
+  }
+
+  private async fetchCryptoLiveQuotes(): Promise<void> {
+    try {
+      const response = await fetch(COINGECKO_URL, {
+        headers: { Accept: 'application/json' },
+        signal: AbortSignal.timeout(12_000),
+      });
+      if (!response.ok) return;
+      this.applyCoinGeckoPrices((await response.json()) as CoinGeckoPriceMap);
+    } catch (error) {
+      this.logger.warn(`Crypto live quotes failed: ${String(error)}`);
+    }
+  }
+
+  private applyAwesomeQuotes(payload: Record<string, AwesomeQuote>): void {
+    for (const quote of Object.values(payload)) {
+      const codigo = quote.code?.toUpperCase();
+      if (!codigo || !FIAT_META[codigo]) continue;
+
+      const pctChange = quote.pctChange != null ? Number(quote.pctChange) : null;
+      const high = quote.high != null ? Number(quote.high) : null;
+      const low = quote.low != null ? Number(quote.low) : null;
+
+      this.lastLiveQuotes.set(codigo, {
+        pctChange: Number.isFinite(pctChange) ? pctChange : null,
+        high: Number.isFinite(high) ? high : null,
+        low: Number.isFinite(low) ? low : null,
+      });
+    }
+  }
+
+  private applyCoinGeckoPrices(payload: CoinGeckoPriceMap): void {
+    for (const asset of CRYPTO_META) {
+      const price = payload[asset.id];
+      if (!price?.brl) continue;
+
+      const pctChange = price.brl_24h_change != null ? Number(price.brl_24h_change) : null;
+      this.lastLiveQuotes.set(asset.codigo, {
+        pctChange: Number.isFinite(pctChange) ? pctChange : null,
+        high: null,
+        low: null,
+      });
+    }
+  }
+
+  private async syncFiatMoedas(): Promise<void> {
     try {
       const response = await fetch(AWESOME_URL, {
         headers: { Accept: 'application/json' },
@@ -161,25 +299,16 @@ export class MarketService {
 
       const payload = (await response.json()) as Record<string, AwesomeQuote>;
       const now = new Date();
+      this.applyAwesomeQuotes(payload);
 
       for (const quote of Object.values(payload)) {
         const codigo = quote.code?.toUpperCase();
-        if (!codigo || !CURRENCY_META[codigo]) continue;
+        if (!codigo || !FIAT_META[codigo]) continue;
 
         const bid = Number(quote.bid);
         if (!Number.isFinite(bid) || bid <= 0) continue;
 
-        const meta = CURRENCY_META[codigo];
-        const pctChange = quote.pctChange != null ? Number(quote.pctChange) : null;
-        const high = quote.high != null ? Number(quote.high) : null;
-        const low = quote.low != null ? Number(quote.low) : null;
-
-        this.lastLiveQuotes.set(codigo, {
-          pctChange: Number.isFinite(pctChange) ? pctChange : null,
-          high: Number.isFinite(high) ? high : null,
-          low: Number.isFinite(low) ? low : null,
-        });
-
+        const meta = FIAT_META[codigo];
         await this.prisma.moeda.upsert({
           where: { codigo },
           create: {
@@ -199,6 +328,46 @@ export class MarketService {
       }
     } catch (error) {
       this.logger.warn(`AwesomeAPI sync failed: ${String(error)}`);
+    }
+  }
+
+  private async syncCryptoMoedas(): Promise<void> {
+    try {
+      const response = await fetch(COINGECKO_URL, {
+        headers: { Accept: 'application/json' },
+        signal: AbortSignal.timeout(12_000),
+      });
+      if (!response.ok) {
+        throw new Error(`CoinGecko HTTP ${response.status}`);
+      }
+
+      const payload = (await response.json()) as CoinGeckoPriceMap;
+      const now = new Date();
+      this.applyCoinGeckoPrices(payload);
+
+      for (const asset of CRYPTO_META) {
+        const price = payload[asset.id];
+        if (!price?.brl || price.brl <= 0) continue;
+
+        await this.prisma.moeda.upsert({
+          where: { codigo: asset.codigo },
+          create: {
+            codigo: asset.codigo,
+            nome: asset.nome,
+            simbolo: asset.simbolo,
+            taxaParaReal: price.brl,
+            dataAtualizacao: now,
+          },
+          update: {
+            nome: asset.nome,
+            simbolo: asset.simbolo,
+            taxaParaReal: price.brl,
+            dataAtualizacao: now,
+          },
+        });
+      }
+    } catch (error) {
+      this.logger.warn(`CoinGecko sync failed: ${String(error)}`);
     }
   }
 
@@ -351,7 +520,8 @@ export class MarketService {
   }
 
   private mapRssItem(raw: Record<string, unknown>, fonte: string): MarketNoticiaDto | null {
-    const titulo = this.asString(raw.title) ?? this.asString((raw.title as { '#text'?: string })?.['#text']);
+    const titulo =
+      this.asString(raw.title) ?? this.asString((raw.title as { '#text'?: string })?.['#text']);
     const linkField = raw.link;
     let url: string | null = null;
     if (typeof linkField === 'string') {
