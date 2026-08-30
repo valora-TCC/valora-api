@@ -99,12 +99,12 @@ export class MetasService {
     }
   }
 
-  private withStatus<T extends { valorAtual: Prisma.Decimal; valorObjetivo: Prisma.Decimal }>(meta: T) {
+  private withStatus<T extends { valorAtual: Prisma.Decimal; valorObjetivo: Prisma.Decimal }>(
+    meta: T,
+  ) {
     const atual = new Prisma.Decimal(meta.valorAtual);
     const objetivo = new Prisma.Decimal(meta.valorObjetivo);
-    const percentual = objetivo.equals(0)
-      ? 0
-      : Number(atual.div(objetivo).mul(100).toFixed(2));
+    const percentual = objetivo.equals(0) ? 0 : Number(atual.div(objetivo).mul(100).toFixed(2));
     return { ...meta, percentual };
   }
 }

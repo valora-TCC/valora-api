@@ -15,6 +15,7 @@ export type MarketTaxaDto = {
   fonte: string | null;
   dataAtualizacao: string;
   referencia: boolean;
+  periodo: 'aa' | 'mensal';
 };
 
 export type MarketNoticiaDto = {
@@ -26,8 +27,9 @@ export type MarketNoticiaDto = {
 };
 
 export type MarketSummaryDto = {
-  moedas: MarketMoedaDto[];
-  taxas: MarketTaxaDto[];
+  cambio: { moedas: MarketMoedaDto[] };
+  cripto: { moedas: MarketMoedaDto[] };
+  taxas: { taxas: MarketTaxaDto[] };
   noticias: MarketNoticiaDto[];
   atualizadoEm: string;
 };
@@ -45,3 +47,5 @@ export type BcbSerieItem = {
   data: string;
   valor: string;
 };
+
+export type CoinGeckoPriceMap = Record<string, { brl: number; brl_24h_change?: number }>;
