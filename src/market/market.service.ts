@@ -619,9 +619,7 @@ export class MarketService {
                 ? bond.minInvstmtAmt
                 : null,
             puVenda:
-              bond.untrRedVal != null && Number.isFinite(bond.untrRedVal)
-                ? bond.untrRedVal
-                : null,
+              bond.untrRedVal != null && Number.isFinite(bond.untrRedVal) ? bond.untrRedVal : null,
             fonte: 'Tesouro Direto',
           };
         })
