@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
 import { XMLParser } from 'fast-xml-parser';
 import { PrismaService } from '../prisma/prisma.service';
@@ -6,14 +7,18 @@ import type {
   AwesomeQuote,
   BcbSerieItem,
   CoinGeckoPriceMap,
+  MarketEducacaoExtrasDto,
   MarketMoedaDto,
   MarketNoticiaDto,
   MarketSummaryDto,
   MarketTaxaDto,
+  MarketTesouroTituloDto,
+  MarketTickerDto,
 } from './market.types';
 
 const SYNC_MAX_AGE_MS = 60 * 60 * 1000;
 const LIVE_QUOTES_TTL_MS = 2 * 60 * 1000;
+const EDUCACAO_EXTRAS_TTL_MS = 30 * 60 * 1000;
 
 const FIAT_META: Record<string, { nome: string; simbolo: string }> = {
   USD: { nome: 'Dólar americano', simbolo: 'US$' },
@@ -59,10 +64,15 @@ const BCB_SERIES = [
 
 const TAXA_NAMES = [...BCB_SERIES.map((s) => s.nome), 'CDB'];
 
+const EDUCATIONAL_TICKERS = ['PETR4', 'VALE3', 'ITUB4', 'BOVA11'] as const;
+
 const NEWS_FEEDS = [
   { url: 'https://www.infomoney.com.br/feed/', fonte: 'InfoMoney' },
   { url: 'https://www.moneytimes.com.br/feed/', fonte: 'Money Times' },
 ] as const;
+
+const TESOURO_JSON_URL =
+  'https://www.tesourodireto.com.br/json/br/com/b3/tesourodireto/service/api/treasurybondsinfo.json';
 
 @Injectable()
 export class MarketService {
@@ -74,12 +84,16 @@ export class MarketService {
   >();
   private newsCache: { items: MarketNoticiaDto[]; fetchedAt: number } | null = null;
   private liveQuotesFetchedAt = 0;
+  private educacaoExtrasCache: { data: MarketEducacaoExtrasDto; fetchedAt: number } | null = null;
   private readonly xmlParser = new XMLParser({
     ignoreAttributes: false,
     attributeNamePrefix: '@_',
   });
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
+  ) {}
 
   async getSummary(): Promise<MarketSummaryDto> {
     await this.ensureFreshData();
@@ -136,6 +150,45 @@ export class MarketService {
       taxas: { taxas: this.sortTaxas(taxas) },
       noticias,
       atualizadoEm: new Date().toISOString(),
+    };
+  }
+
+  async getEducacaoExtras(): Promise<MarketEducacaoExtrasDto> {
+    if (
+      this.educacaoExtrasCache &&
+      Date.now() - this.educacaoExtrasCache.fetchedAt < EDUCACAO_EXTRAS_TTL_MS
+    ) {
+      return this.educacaoExtrasCache.data;
+    }
+
+    const [tickers, tesouro] = await Promise.all([
+      this.fetchEducationalTickers(),
+      this.fetchTesouroTitulos(),
+    ]);
+
+    const data: MarketEducacaoExtrasDto = {
+      tickers,
+      tesouro,
+      atualizadoEm: new Date().toISOString(),
+    };
+    this.educacaoExtrasCache = { data, fetchedAt: Date.now() };
+    return data;
+  }
+
+  async getTaxaByNome(nome: string): Promise<MarketTaxaDto | null> {
+    await this.ensureFreshData();
+    const taxa = await this.prisma.taxa.findFirst({
+      where: { nome: nome.toUpperCase() },
+      orderBy: { dataAtualizacao: 'desc' },
+    });
+    if (!taxa) return null;
+    return {
+      nome: taxa.nome,
+      valorPercentual: Number(taxa.valorPercentual),
+      fonte: taxa.fonte,
+      dataAtualizacao: taxa.dataAtualizacao.toISOString(),
+      referencia: taxa.nome === 'CDB' || taxa.fonte === 'referencia',
+      periodo: this.taxaPeriodo(taxa.nome),
     };
   }
 
@@ -456,6 +509,126 @@ export class MarketService {
         dataAtualizacao: input.dataAtualizacao,
       },
     });
+  }
+
+  private async fetchEducationalTickers(): Promise<MarketTickerDto[]> {
+    const token = this.config.get<string>('BRAPI_TOKEN');
+    const results: MarketTickerDto[] = [];
+
+    for (const symbol of EDUCATIONAL_TICKERS) {
+      try {
+        const url = new URL(`https://brapi.dev/api/quote/${symbol}`);
+        const headers: Record<string, string> = { Accept: 'application/json' };
+        if (token) {
+          headers.Authorization = `Bearer ${token}`;
+        }
+
+        const response = await fetch(url, {
+          headers,
+          signal: AbortSignal.timeout(12_000),
+        });
+        if (!response.ok) {
+          this.logger.warn(`BrAPI ${symbol} HTTP ${response.status}`);
+          continue;
+        }
+
+        const payload = (await response.json()) as {
+          results?: Array<{
+            symbol?: string;
+            shortName?: string;
+            currency?: string;
+            regularMarketPrice?: number;
+            regularMarketChangePercent?: number;
+          }>;
+        };
+        const item = payload.results?.[0];
+        if (!item) continue;
+
+        results.push({
+          symbol: item.symbol ?? symbol,
+          shortName: item.shortName ?? null,
+          currency: item.currency ?? 'BRL',
+          regularMarketPrice:
+            item.regularMarketPrice != null && Number.isFinite(item.regularMarketPrice)
+              ? item.regularMarketPrice
+              : null,
+          regularMarketChangePercent:
+            item.regularMarketChangePercent != null &&
+            Number.isFinite(item.regularMarketChangePercent)
+              ? item.regularMarketChangePercent
+              : null,
+          fonte: 'brapi.dev',
+        });
+      } catch (error) {
+        this.logger.warn(`BrAPI ${symbol} failed: ${String(error)}`);
+      }
+    }
+
+    return results;
+  }
+
+  private async fetchTesouroTitulos(): Promise<MarketTesouroTituloDto[]> {
+    try {
+      const response = await fetch(TESOURO_JSON_URL, {
+        headers: {
+          Accept: 'application/json',
+          'User-Agent': 'ValoraMarketBot/1.0',
+        },
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!response.ok) {
+        this.logger.warn(`Tesouro Direto HTTP ${response.status}`);
+        return [];
+      }
+
+      const payload = (await response.json()) as {
+        response?: {
+          TrsrBdTradgList?: Array<{
+            TrsrBd?: {
+              nm?: string;
+              featrs?: string;
+              mtrtyDt?: string;
+              untrRedVal?: number;
+              minInvstmtAmt?: number;
+              anulInvstmtRate?: number;
+              anulRedRate?: number;
+            };
+          }>;
+        };
+      };
+
+      const list = payload.response?.TrsrBdTradgList ?? [];
+      return list
+        .map((entry): MarketTesouroTituloDto | null => {
+          const bond = entry.TrsrBd;
+          if (!bond?.nm) return null;
+          return {
+            nome: bond.nm,
+            tipoTitulo: bond.featrs ?? null,
+            vencimento: bond.mtrtyDt ?? null,
+            taxaCompra:
+              bond.anulInvstmtRate != null && Number.isFinite(bond.anulInvstmtRate)
+                ? bond.anulInvstmtRate
+                : null,
+            taxaVenda:
+              bond.anulRedRate != null && Number.isFinite(bond.anulRedRate)
+                ? bond.anulRedRate
+                : null,
+            puCompra:
+              bond.minInvstmtAmt != null && Number.isFinite(bond.minInvstmtAmt)
+                ? bond.minInvstmtAmt
+                : null,
+            puVenda:
+              bond.untrRedVal != null && Number.isFinite(bond.untrRedVal) ? bond.untrRedVal : null,
+            fonte: 'Tesouro Direto',
+          };
+        })
+        .filter((item): item is MarketTesouroTituloDto => item != null)
+        .slice(0, 8);
+    } catch (error) {
+      this.logger.warn(`Tesouro Direto failed: ${String(error)}`);
+      return [];
+    }
   }
 
   private async fetchNews(): Promise<MarketNoticiaDto[]> {

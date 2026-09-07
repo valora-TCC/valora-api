@@ -4,7 +4,7 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['dist/**', 'node_modules/**', 'coverage/**'],
+    ignores: ['dist/**', 'node_modules/**', 'coverage/**', 'src/generated/**'],
   },
   ...tseslint.configs.recommended,
   eslintPluginPrettierRecommended,
@@ -13,10 +13,6 @@ export default tseslint.config(
       globals: {
         ...globals.node,
         ...globals.jest,
-      },
-      parserOptions: {
-        projectService: true,
-        tsconfigRootDir: import.meta.dirname,
       },
     },
     rules: {

@@ -9,6 +9,8 @@ const envSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   SUPABASE_JWKS_URL: z.string().url().optional(),
   SUPABASE_JWT_SECRET: z.string().optional(),
+  /** Optional BrAPI token for educational B3 tickers (free tier works without for demo symbols). */
+  BRAPI_TOKEN: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

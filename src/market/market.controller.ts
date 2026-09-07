@@ -14,4 +14,13 @@ export class MarketController {
   summary() {
     return this.marketService.getSummary();
   }
+
+  @Public()
+  @Get('educacao-extras')
+  @ApiOperation({
+    summary: 'Tickers educativos (BrAPI) e títulos do Tesouro Direto para a área de Educação',
+  })
+  educacaoExtras() {
+    return this.marketService.getEducacaoExtras();
+  }
 }

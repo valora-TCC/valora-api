@@ -8,7 +8,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-import { InvestmentType } from '@prisma/client';
+import { InvestmentType } from '../../prisma/client';
 
 export class CreateInvestmentDto {
   @IsString()

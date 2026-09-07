@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import { Prisma } from '../prisma/client';
 import { BadRequestException } from '@nestjs/common';
 import { MetasService } from './metas.service';
 

@@ -49,3 +49,29 @@ export type BcbSerieItem = {
 };
 
 export type CoinGeckoPriceMap = Record<string, { brl: number; brl_24h_change?: number }>;
+
+export type MarketTickerDto = {
+  symbol: string;
+  shortName: string | null;
+  currency: string | null;
+  regularMarketPrice: number | null;
+  regularMarketChangePercent: number | null;
+  fonte: string;
+};
+
+export type MarketTesouroTituloDto = {
+  nome: string;
+  tipoTitulo: string | null;
+  vencimento: string | null;
+  taxaCompra: number | null;
+  taxaVenda: number | null;
+  puCompra: number | null;
+  puVenda: number | null;
+  fonte: string;
+};
+
+export type MarketEducacaoExtrasDto = {
+  tickers: MarketTickerDto[];
+  tesouro: MarketTesouroTituloDto[];
+  atualizadoEm: string;
+};

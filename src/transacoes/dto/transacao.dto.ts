@@ -8,7 +8,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-import { TipoFinanceiro } from '@prisma/client';
+import { TipoFinanceiro } from '../../prisma/client';
 import { Type } from 'class-transformer';
 
 export class CreateTransacaoDto {

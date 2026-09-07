@@ -16,6 +16,8 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { InvestmentsModule } from './investments/investments.module';
 import { NotificacoesModule } from './notificacoes/notificacoes.module';
 import { MarketModule } from './market/market.module';
+import { ConteudoModule } from './conteudo/conteudo.module';
+import { SimulacoesModule } from './simulacoes/simulacoes.module';
 import { validateEnv } from './config/env.validation';
 
 @Module({
@@ -38,6 +40,8 @@ import { validateEnv } from './config/env.validation';
     InvestmentsModule,
     NotificacoesModule,
     MarketModule,
+    ConteudoModule,
+    SimulacoesModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
