@@ -1,23 +1,24 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
 import { XMLParser } from 'fast-xml-parser';
 import { PrismaService } from '../prisma/prisma.service';
 import type {
   AwesomeQuote,
   BcbSerieItem,
-<<<<<<< HEAD
   CoinGeckoPriceMap,
-=======
->>>>>>> be3042f (Add fast-xml-parser and chokidar dependencies in package.json and pnpm-lock.yaml; include MarketModule in app.module.ts)
+  MarketEducacaoExtrasDto,
   MarketMoedaDto,
   MarketNoticiaDto,
   MarketSummaryDto,
   MarketTaxaDto,
+  MarketTesouroTituloDto,
+  MarketTickerDto,
 } from './market.types';
 
 const SYNC_MAX_AGE_MS = 60 * 60 * 1000;
-<<<<<<< HEAD
 const LIVE_QUOTES_TTL_MS = 2 * 60 * 1000;
+const EDUCACAO_EXTRAS_TTL_MS = 30 * 60 * 1000;
 
 const FIAT_META: Record<string, { nome: string; simbolo: string }> = {
   USD: { nome: 'Dólar americano', simbolo: 'US$' },
@@ -63,29 +64,15 @@ const BCB_SERIES = [
 
 const TAXA_NAMES = [...BCB_SERIES.map((s) => s.nome), 'CDB'];
 
-=======
-const AWESOME_PAIRS = 'USD-BRL,EUR-BRL,GBP-BRL,BTC-BRL';
-const AWESOME_URL = `https://economia.awesomeapi.com.br/json/last/${AWESOME_PAIRS}`;
+const EDUCATIONAL_TICKERS = ['PETR4', 'VALE3', 'ITUB4', 'BOVA11'] as const;
 
-const CURRENCY_META: Record<string, { nome: string; simbolo: string }> = {
-  USD: { nome: 'Dólar americano', simbolo: 'US$' },
-  EUR: { nome: 'Euro', simbolo: '€' },
-  GBP: { nome: 'Libra esterlina', simbolo: '£' },
-  BTC: { nome: 'Bitcoin', simbolo: '₿' },
-  BRL: { nome: 'Real brasileiro', simbolo: 'R$' },
-};
-
-/** BCB SGS: 432 = Selic meta (% a.a.), 12 = CDI (% a.a.) */
-const BCB_SERIES = [
-  { codigo: 432, nome: 'SELIC' },
-  { codigo: 12, nome: 'CDI' },
-] as const;
-
->>>>>>> be3042f (Add fast-xml-parser and chokidar dependencies in package.json and pnpm-lock.yaml; include MarketModule in app.module.ts)
 const NEWS_FEEDS = [
   { url: 'https://www.infomoney.com.br/feed/', fonte: 'InfoMoney' },
   { url: 'https://www.moneytimes.com.br/feed/', fonte: 'Money Times' },
 ] as const;
+
+const TESOURO_JSON_URL =
+  'https://www.tesourodireto.com.br/json/br/com/b3/tesourodireto/service/api/treasurybondsinfo.json';
 
 @Injectable()
 export class MarketService {
@@ -96,20 +83,20 @@ export class MarketService {
     { pctChange: number | null; high: number | null; low: number | null }
   >();
   private newsCache: { items: MarketNoticiaDto[]; fetchedAt: number } | null = null;
-<<<<<<< HEAD
   private liveQuotesFetchedAt = 0;
-=======
->>>>>>> be3042f (Add fast-xml-parser and chokidar dependencies in package.json and pnpm-lock.yaml; include MarketModule in app.module.ts)
+  private educacaoExtrasCache: { data: MarketEducacaoExtrasDto; fetchedAt: number } | null = null;
   private readonly xmlParser = new XMLParser({
     ignoreAttributes: false,
     attributeNamePrefix: '@_',
   });
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
+  ) {}
 
   async getSummary(): Promise<MarketSummaryDto> {
     await this.ensureFreshData();
-<<<<<<< HEAD
     await this.ensureLiveQuotes();
 
     const [moedasDb, taxasDb, noticias] = await Promise.all([
@@ -119,26 +106,12 @@ export class MarketService {
       }),
       this.prisma.taxa.findMany({
         where: { nome: { in: TAXA_NAMES } },
-=======
-
-    const [moedasDb, taxasDb, noticias] = await Promise.all([
-      this.prisma.moeda.findMany({
-        where: { codigo: { in: ['USD', 'EUR', 'GBP', 'BTC'] } },
-        orderBy: { codigo: 'asc' },
-      }),
-      this.prisma.taxa.findMany({
-        where: { nome: { in: ['SELIC', 'CDI', 'CDB'] } },
->>>>>>> be3042f (Add fast-xml-parser and chokidar dependencies in package.json and pnpm-lock.yaml; include MarketModule in app.module.ts)
         orderBy: { nome: 'asc' },
       }),
       this.fetchNews(),
     ]);
 
-<<<<<<< HEAD
     const mapMoeda = (m: (typeof moedasDb)[number]): MarketMoedaDto => {
-=======
-    const moedas: MarketMoedaDto[] = moedasDb.map((m) => {
->>>>>>> be3042f (Add fast-xml-parser and chokidar dependencies in package.json and pnpm-lock.yaml; include MarketModule in app.module.ts)
       const live = this.lastLiveQuotes.get(m.codigo);
       return {
         codigo: m.codigo,
@@ -150,11 +123,7 @@ export class MarketService {
         low: live?.low ?? null,
         dataAtualizacao: m.dataAtualizacao.toISOString(),
       };
-<<<<<<< HEAD
     };
-=======
-    });
->>>>>>> be3042f (Add fast-xml-parser and chokidar dependencies in package.json and pnpm-lock.yaml; include MarketModule in app.module.ts)
 
     const taxas: MarketTaxaDto[] = taxasDb.map((t) => ({
       nome: t.nome,
@@ -162,7 +131,6 @@ export class MarketService {
       fonte: t.fonte,
       dataAtualizacao: t.dataAtualizacao.toISOString(),
       referencia: t.nome === 'CDB' || t.fonte === 'referencia',
-<<<<<<< HEAD
       periodo: this.taxaPeriodo(t.nome),
     }));
 
@@ -180,15 +148,47 @@ export class MarketService {
         ),
       },
       taxas: { taxas: this.sortTaxas(taxas) },
-=======
-    }));
-
-    return {
-      moedas,
-      taxas,
->>>>>>> be3042f (Add fast-xml-parser and chokidar dependencies in package.json and pnpm-lock.yaml; include MarketModule in app.module.ts)
       noticias,
       atualizadoEm: new Date().toISOString(),
+    };
+  }
+
+  async getEducacaoExtras(): Promise<MarketEducacaoExtrasDto> {
+    if (
+      this.educacaoExtrasCache &&
+      Date.now() - this.educacaoExtrasCache.fetchedAt < EDUCACAO_EXTRAS_TTL_MS
+    ) {
+      return this.educacaoExtrasCache.data;
+    }
+
+    const [tickers, tesouro] = await Promise.all([
+      this.fetchEducationalTickers(),
+      this.fetchTesouroTitulos(),
+    ]);
+
+    const data: MarketEducacaoExtrasDto = {
+      tickers,
+      tesouro,
+      atualizadoEm: new Date().toISOString(),
+    };
+    this.educacaoExtrasCache = { data, fetchedAt: Date.now() };
+    return data;
+  }
+
+  async getTaxaByNome(nome: string): Promise<MarketTaxaDto | null> {
+    await this.ensureFreshData();
+    const taxa = await this.prisma.taxa.findFirst({
+      where: { nome: nome.toUpperCase() },
+      orderBy: { dataAtualizacao: 'desc' },
+    });
+    if (!taxa) return null;
+    return {
+      nome: taxa.nome,
+      valorPercentual: Number(taxa.valorPercentual),
+      fonte: taxa.fonte,
+      dataAtualizacao: taxa.dataAtualizacao.toISOString(),
+      referencia: taxa.nome === 'CDB' || taxa.fonte === 'referencia',
+      periodo: this.taxaPeriodo(taxa.nome),
     };
   }
 
@@ -202,14 +202,11 @@ export class MarketService {
     }
   }
 
-<<<<<<< HEAD
   private taxaPeriodo(nome: string): 'aa' | 'mensal' {
     const serie = BCB_SERIES.find((s) => s.nome === nome);
     return serie?.periodo ?? 'aa';
   }
 
-=======
->>>>>>> be3042f (Add fast-xml-parser and chokidar dependencies in package.json and pnpm-lock.yaml; include MarketModule in app.module.ts)
   private async ensureFreshData(): Promise<void> {
     const stale = await this.isStale();
     if (!stale) return;
@@ -221,7 +218,6 @@ export class MarketService {
   }
 
   private async isStale(): Promise<boolean> {
-<<<<<<< HEAD
     const [latest, count] = await Promise.all([
       this.prisma.moeda.findFirst({
         where: { codigo: { in: MARKET_CODES } },
@@ -234,14 +230,6 @@ export class MarketService {
     ]);
 
     if (!latest || count < MARKET_CODES.length) return true;
-=======
-    const latest = await this.prisma.moeda.findFirst({
-      where: { codigo: { in: ['USD', 'EUR', 'GBP', 'BTC'] } },
-      orderBy: { dataAtualizacao: 'desc' },
-      select: { dataAtualizacao: true },
-    });
-    if (!latest) return true;
->>>>>>> be3042f (Add fast-xml-parser and chokidar dependencies in package.json and pnpm-lock.yaml; include MarketModule in app.module.ts)
     return Date.now() - latest.dataAtualizacao.getTime() > SYNC_MAX_AGE_MS;
   }
 
@@ -249,11 +237,7 @@ export class MarketService {
     if (this.syncing) return this.syncing;
     this.syncing = (async () => {
       await this.ensureBrl();
-<<<<<<< HEAD
       await Promise.all([this.syncFiatMoedas(), this.syncCryptoMoedas(), this.syncTaxas()]);
-=======
-      await Promise.all([this.syncMoedas(), this.syncTaxas()]);
->>>>>>> be3042f (Add fast-xml-parser and chokidar dependencies in package.json and pnpm-lock.yaml; include MarketModule in app.module.ts)
     })().finally(() => {
       this.syncing = null;
     });
@@ -265,20 +249,14 @@ export class MarketService {
       where: { codigo: 'BRL' },
       create: {
         codigo: 'BRL',
-<<<<<<< HEAD
         nome: 'Real brasileiro',
         simbolo: 'R$',
-=======
-        nome: CURRENCY_META.BRL.nome,
-        simbolo: CURRENCY_META.BRL.simbolo,
->>>>>>> be3042f (Add fast-xml-parser and chokidar dependencies in package.json and pnpm-lock.yaml; include MarketModule in app.module.ts)
         taxaParaReal: 1,
       },
       update: {},
     });
   }
 
-<<<<<<< HEAD
   private sortMoedas(moedas: MarketMoedaDto[], order: readonly string[]): MarketMoedaDto[] {
     const rank = new Map(order.map((code, index) => [code, index]));
     return [...moedas].sort(
@@ -363,9 +341,6 @@ export class MarketService {
   }
 
   private async syncFiatMoedas(): Promise<void> {
-=======
-  private async syncMoedas(): Promise<void> {
->>>>>>> be3042f (Add fast-xml-parser and chokidar dependencies in package.json and pnpm-lock.yaml; include MarketModule in app.module.ts)
     try {
       const response = await fetch(AWESOME_URL, {
         headers: { Accept: 'application/json' },
@@ -377,37 +352,16 @@ export class MarketService {
 
       const payload = (await response.json()) as Record<string, AwesomeQuote>;
       const now = new Date();
-<<<<<<< HEAD
       this.applyAwesomeQuotes(payload);
 
       for (const quote of Object.values(payload)) {
         const codigo = quote.code?.toUpperCase();
         if (!codigo || !FIAT_META[codigo]) continue;
-=======
-
-      for (const quote of Object.values(payload)) {
-        const codigo = quote.code?.toUpperCase();
-        if (!codigo || !CURRENCY_META[codigo]) continue;
->>>>>>> be3042f (Add fast-xml-parser and chokidar dependencies in package.json and pnpm-lock.yaml; include MarketModule in app.module.ts)
 
         const bid = Number(quote.bid);
         if (!Number.isFinite(bid) || bid <= 0) continue;
 
-<<<<<<< HEAD
         const meta = FIAT_META[codigo];
-=======
-        const meta = CURRENCY_META[codigo];
-        const pctChange = quote.pctChange != null ? Number(quote.pctChange) : null;
-        const high = quote.high != null ? Number(quote.high) : null;
-        const low = quote.low != null ? Number(quote.low) : null;
-
-        this.lastLiveQuotes.set(codigo, {
-          pctChange: Number.isFinite(pctChange) ? pctChange : null,
-          high: Number.isFinite(high) ? high : null,
-          low: Number.isFinite(low) ? low : null,
-        });
-
->>>>>>> be3042f (Add fast-xml-parser and chokidar dependencies in package.json and pnpm-lock.yaml; include MarketModule in app.module.ts)
         await this.prisma.moeda.upsert({
           where: { codigo },
           create: {
@@ -430,7 +384,6 @@ export class MarketService {
     }
   }
 
-<<<<<<< HEAD
   private async syncCryptoMoedas(): Promise<void> {
     try {
       const response = await fetch(COINGECKO_URL, {
@@ -471,8 +424,6 @@ export class MarketService {
     }
   }
 
-=======
->>>>>>> be3042f (Add fast-xml-parser and chokidar dependencies in package.json and pnpm-lock.yaml; include MarketModule in app.module.ts)
   private async syncTaxas(): Promise<void> {
     const brl = await this.prisma.moeda.findUnique({ where: { codigo: 'BRL' } });
     if (!brl) return;
@@ -560,6 +511,128 @@ export class MarketService {
     });
   }
 
+  private async fetchEducationalTickers(): Promise<MarketTickerDto[]> {
+    const token = this.config.get<string>('BRAPI_TOKEN');
+    const results: MarketTickerDto[] = [];
+
+    for (const symbol of EDUCATIONAL_TICKERS) {
+      try {
+        const url = new URL(`https://brapi.dev/api/quote/${symbol}`);
+        const headers: Record<string, string> = { Accept: 'application/json' };
+        if (token) {
+          headers.Authorization = `Bearer ${token}`;
+        }
+
+        const response = await fetch(url, {
+          headers,
+          signal: AbortSignal.timeout(12_000),
+        });
+        if (!response.ok) {
+          this.logger.warn(`BrAPI ${symbol} HTTP ${response.status}`);
+          continue;
+        }
+
+        const payload = (await response.json()) as {
+          results?: Array<{
+            symbol?: string;
+            shortName?: string;
+            currency?: string;
+            regularMarketPrice?: number;
+            regularMarketChangePercent?: number;
+          }>;
+        };
+        const item = payload.results?.[0];
+        if (!item) continue;
+
+        results.push({
+          symbol: item.symbol ?? symbol,
+          shortName: item.shortName ?? null,
+          currency: item.currency ?? 'BRL',
+          regularMarketPrice:
+            item.regularMarketPrice != null && Number.isFinite(item.regularMarketPrice)
+              ? item.regularMarketPrice
+              : null,
+          regularMarketChangePercent:
+            item.regularMarketChangePercent != null &&
+            Number.isFinite(item.regularMarketChangePercent)
+              ? item.regularMarketChangePercent
+              : null,
+          fonte: 'brapi.dev',
+        });
+      } catch (error) {
+        this.logger.warn(`BrAPI ${symbol} failed: ${String(error)}`);
+      }
+    }
+
+    return results;
+  }
+
+  private async fetchTesouroTitulos(): Promise<MarketTesouroTituloDto[]> {
+    try {
+      const response = await fetch(TESOURO_JSON_URL, {
+        headers: {
+          Accept: 'application/json',
+          'User-Agent': 'ValoraMarketBot/1.0',
+        },
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!response.ok) {
+        this.logger.warn(`Tesouro Direto HTTP ${response.status}`);
+        return [];
+      }
+
+      const payload = (await response.json()) as {
+        response?: {
+          TrsrBdTradgList?: Array<{
+            TrsrBd?: {
+              nm?: string;
+              featrs?: string;
+              mtrtyDt?: string;
+              untrRedVal?: number;
+              minInvstmtAmt?: number;
+              anulInvstmtRate?: number;
+              anulRedRate?: number;
+            };
+          }>;
+        };
+      };
+
+      const list = payload.response?.TrsrBdTradgList ?? [];
+      return list
+        .map((entry): MarketTesouroTituloDto | null => {
+          const bond = entry.TrsrBd;
+          if (!bond?.nm) return null;
+          return {
+            nome: bond.nm,
+            tipoTitulo: bond.featrs ?? null,
+            vencimento: bond.mtrtyDt ?? null,
+            taxaCompra:
+              bond.anulInvstmtRate != null && Number.isFinite(bond.anulInvstmtRate)
+                ? bond.anulInvstmtRate
+                : null,
+            taxaVenda:
+              bond.anulRedRate != null && Number.isFinite(bond.anulRedRate)
+                ? bond.anulRedRate
+                : null,
+            puCompra:
+              bond.minInvstmtAmt != null && Number.isFinite(bond.minInvstmtAmt)
+                ? bond.minInvstmtAmt
+                : null,
+            puVenda:
+              bond.untrRedVal != null && Number.isFinite(bond.untrRedVal)
+                ? bond.untrRedVal
+                : null,
+            fonte: 'Tesouro Direto',
+          };
+        })
+        .filter((item): item is MarketTesouroTituloDto => item != null)
+        .slice(0, 8);
+    } catch (error) {
+      this.logger.warn(`Tesouro Direto failed: ${String(error)}`);
+      return [];
+    }
+  }
+
   private async fetchNews(): Promise<MarketNoticiaDto[]> {
     if (this.newsCache && Date.now() - this.newsCache.fetchedAt < 15 * 60 * 1000) {
       return this.newsCache.items;
@@ -622,12 +695,8 @@ export class MarketService {
   }
 
   private mapRssItem(raw: Record<string, unknown>, fonte: string): MarketNoticiaDto | null {
-<<<<<<< HEAD
     const titulo =
       this.asString(raw.title) ?? this.asString((raw.title as { '#text'?: string })?.['#text']);
-=======
-    const titulo = this.asString(raw.title) ?? this.asString((raw.title as { '#text'?: string })?.['#text']);
->>>>>>> be3042f (Add fast-xml-parser and chokidar dependencies in package.json and pnpm-lock.yaml; include MarketModule in app.module.ts)
     const linkField = raw.link;
     let url: string | null = null;
     if (typeof linkField === 'string') {

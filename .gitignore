@@ -41,6 +41,7 @@ lerna-debug.log*
 # Prisma
 prisma/*.db
 prisma/*.db-journal
+/src/generated
 
 # misc
 *.tsbuildinfo

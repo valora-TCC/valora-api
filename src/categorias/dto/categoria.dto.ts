@@ -1,5 +1,5 @@
 import { IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
-import { TipoFinanceiro } from '@prisma/client';
+import { TipoFinanceiro } from '../../prisma/client';
 
 export class CreateCategoriaDto {
   @IsString()

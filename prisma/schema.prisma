@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
@@ -197,17 +198,26 @@ model SimulacaoJuros {
 }
 
 model Conteudo {
-  id              String    @id @default(dbgenerated("gen_random_uuid()")) @map("id_conteudo") @db.Uuid
-  titulo          String
-  descricao       String?
-  tipo            String?
-  url             String?
-  capaUrl         String?   @map("capa_url")
-  dataPublicacao  DateTime? @map("data_publicacao") @db.Timestamptz(6)
-  ativo           Boolean   @default(true)
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @map("id_conteudo") @db.Uuid
+  titulo         String
+  descricao      String?
+  /// Short body / markdown educational text
+  corpo          String?
+  /// iniciante | intermediario | avancado
+  nivel          String?
+  /// article | tip | glossary
+  tipo           String?
+  slug           String?   @unique
+  ordem          Int       @default(0)
+  url            String?
+  capaUrl        String?   @map("capa_url")
+  dataPublicacao DateTime? @map("data_publicacao") @db.Timestamptz(6)
+  ativo          Boolean   @default(true)
 
   usuarios UsuarioConteudo[]
 
+  @@index([nivel])
+  @@index([ativo, ordem])
   @@map("conteudo")
 }
 
