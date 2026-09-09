@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { parseRangeEnd, parseRangeStart } from '../common/date-range';
 import { Prisma } from '../prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
@@ -29,8 +30,8 @@ export class TransacoesService {
       ...(query.from || query.to
         ? {
             dataTransacao: {
-              ...(query.from ? { gte: new Date(query.from) } : {}),
-              ...(query.to ? { lte: new Date(query.to) } : {}),
+              ...(query.from ? { gte: parseRangeStart(query.from) } : {}),
+              ...(query.to ? { lte: parseRangeEnd(query.to) } : {}),
             },
           }
         : {}),

@@ -18,6 +18,7 @@ import { NotificacoesModule } from './notificacoes/notificacoes.module';
 import { MarketModule } from './market/market.module';
 import { ConteudoModule } from './conteudo/conteudo.module';
 import { SimulacoesModule } from './simulacoes/simulacoes.module';
+import { ReportsModule } from './reports/reports.module';
 import { validateEnv } from './config/env.validation';
 
 @Module({
@@ -42,6 +43,7 @@ import { validateEnv } from './config/env.validation';
     MarketModule,
     ConteudoModule,
     SimulacoesModule,
+    ReportsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
