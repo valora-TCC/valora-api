@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { parseRangeEnd, parseRangeStart } from '../common/date-range';
 import { Prisma } from '../prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { DashboardQueryDto } from './dto/dashboard-query.dto';
@@ -10,9 +11,9 @@ export class DashboardService {
   async summary(userId: string, query: DashboardQueryDto) {
     const now = new Date();
     const from = query.from
-      ? new Date(query.from)
+      ? parseRangeStart(query.from)
       : new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-    const to = query.to ? new Date(query.to) : now;
+    const to = query.to ? parseRangeEnd(query.to) : now;
 
     const where: Prisma.TransacaoWhereInput = {
       ativo: true,
