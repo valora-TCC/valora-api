@@ -60,11 +60,13 @@ flowchart LR
 - `moeda` / `taxa`: leitura pública (BPMN); escrita `service_role`.
 - `conteudo`: leitura autenticada; escrita `service_role` até existir papel admin.
 - A API usa `DATABASE_URL` (role que pode bypassar RLS). RLS protege acesso direto (Supabase client / PostgREST).
+- Open Finance (extra): `conexao_open_finance` e `evento_sync_open_finance` com RLS; detalhes em [docs/open-finance/belvo-integration.md](../open-finance/belvo-integration.md).
 
 ## Saldo e dashboard
 
 - Fonte de verdade do saldo: `carteira.saldo_atual`, mantido por trigger em `transacao`.
-- Dashboard agrega receitas/despesas do período e soma `saldo_atual` das carteiras ativas.
+- Contas Open Finance: após sync Belvo, `saldo_atual` é atualizado com o saldo da instituição.
+- Dashboard agrega receitas/despesas do período e soma `saldo_atual` das carteiras ativas (inclui lançamentos com `origem = OPEN_FINANCE`).
 
 ## Processos
 

@@ -56,17 +56,15 @@ export class ReportsService {
     if (dto.types.includes('metas')) {
       tasks.push(
         this.metasService.findAll(userId).then((metas) => {
-          payload.metas = metas.map(
-            (meta): ReportMetaRow => ({
-              nome: meta.nome,
-              descricao: meta.descricao,
-              valorObjetivo: toNumber(meta.valorObjetivo),
-              valorAtual: toNumber(meta.valorAtual),
-              percentual: meta.percentual,
-              dataInicio: meta.dataInicio,
-              dataFim: meta.dataFim,
-            }),
-          );
+          payload.metas = metas.map((meta): ReportMetaRow => ({
+            nome: meta.nome,
+            descricao: meta.descricao,
+            valorObjetivo: toNumber(meta.valorObjetivo),
+            valorAtual: toNumber(meta.valorAtual),
+            percentual: meta.percentual,
+            dataInicio: meta.dataInicio,
+            dataFim: meta.dataFim,
+          }));
         }),
       );
     }
@@ -74,23 +72,21 @@ export class ReportsService {
     if (dto.types.includes('orcamentos')) {
       tasks.push(
         this.orcamentosService.findAll(userId).then((orcamentos) => {
-          payload.orcamentos = orcamentos.map(
-            (o): ReportOrcamentoRow => ({
-              nome: o.nome,
-              mes: o.mes,
-              ano: o.ano,
-              valorTotal: toNumber(o.valorTotal),
-              totalGasto: toNumber(o.totalGasto),
-              status: o.status,
-              categorias: o.categorias.map((c) => ({
-                categoriaNome: c.categoria?.nome ?? 'Sem categoria',
-                limite: toNumber(c.limite),
-                valorGasto: toNumber(c.valorGasto),
-                percentual: c.percentual,
-                status: c.status,
-              })),
-            }),
-          );
+          payload.orcamentos = orcamentos.map((o): ReportOrcamentoRow => ({
+            nome: o.nome,
+            mes: o.mes,
+            ano: o.ano,
+            valorTotal: toNumber(o.valorTotal),
+            totalGasto: toNumber(o.totalGasto),
+            status: o.status,
+            categorias: o.categorias.map((c) => ({
+              categoriaNome: c.categoria?.nome ?? 'Sem categoria',
+              limite: toNumber(c.limite),
+              valorGasto: toNumber(c.valorGasto),
+              percentual: c.percentual,
+              status: c.status,
+            })),
+          }));
         }),
       );
     }
@@ -98,15 +94,13 @@ export class ReportsService {
     if (dto.types.includes('carteiras')) {
       tasks.push(
         this.carteirasService.findAll(userId).then((carteiras) => {
-          payload.carteiras = carteiras.map(
-            (c): ReportCarteiraRow => ({
-              nome: c.nome,
-              descricao: c.descricao,
-              saldoAtual: toNumber(c.saldoAtual),
-              dataCriacao: c.dataCriacao,
-              ativo: c.ativo,
-            }),
-          );
+          payload.carteiras = carteiras.map((c): ReportCarteiraRow => ({
+            nome: c.nome,
+            descricao: c.descricao,
+            saldoAtual: toNumber(c.saldoAtual),
+            dataCriacao: c.dataCriacao,
+            ativo: c.ativo,
+          }));
         }),
       );
     }

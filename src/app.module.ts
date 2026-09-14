@@ -19,6 +19,7 @@ import { MarketModule } from './market/market.module';
 import { ConteudoModule } from './conteudo/conteudo.module';
 import { SimulacoesModule } from './simulacoes/simulacoes.module';
 import { ReportsModule } from './reports/reports.module';
+import { OpenFinanceModule } from './open-finance/open-finance.module';
 import { validateEnv } from './config/env.validation';
 
 @Module({
@@ -44,6 +45,7 @@ import { validateEnv } from './config/env.validation';
     ConteudoModule,
     SimulacoesModule,
     ReportsModule,
+    OpenFinanceModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

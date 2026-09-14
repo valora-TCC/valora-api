@@ -1,11 +1,5 @@
 import { Transform } from 'class-transformer';
-import {
-  ArrayMinSize,
-  IsArray,
-  IsDateString,
-  IsIn,
-  IsOptional,
-} from 'class-validator';
+import { ArrayMinSize, IsArray, IsDateString, IsIn, IsOptional } from 'class-validator';
 
 export const REPORT_TYPES = ['metas', 'orcamentos', 'carteiras', 'dashboard'] as const;
 export type ReportType = (typeof REPORT_TYPES)[number];
