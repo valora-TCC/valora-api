@@ -122,7 +122,7 @@ describe('OpenFinanceService', () => {
     prisma.transacao.create.mockResolvedValue({});
     prisma.conexaoOpenFinance.update.mockResolvedValue({
       id: 'conn-demo',
-      instituicao: 'Mockbank',
+      instituicao: 'Nubank',
       status: 'ACTIVE',
       carteiras: [],
     });
@@ -229,7 +229,7 @@ describe('OpenFinanceService', () => {
       data: {
         idUsuario: 'user-a',
         belvoLinkId: '11111111-1111-1111-1111-111111111111',
-        instituicao: 'ofmockbank_br_retail',
+        instituicao: 'Nubank',
         status: 'PENDING',
       },
     });

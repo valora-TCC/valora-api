@@ -167,5 +167,5 @@ Implementado no código:
 2. `pnpm prisma:deploy` (ou migrate) na API
 3. Subir API + web
 4. Em Open Finance, informar CPF/nome (Sandbox: identidade de teste da Belvo se exigido)
-5. Conectar Mockbank → callback → sync
+5. Conectar instituição sandbox → callback → sync (no app a instituição aparece como Nubank)
 6. Verificar carteiras, transações (origem Open Finance) e dashboard

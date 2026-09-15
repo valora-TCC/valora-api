@@ -200,14 +200,14 @@ Reinicie a API se alterou o `.env` depois de subir.
    - **Nome completo**
 4. Clique em **Conectar banco**.
 5. No Hosted Widget da Belvo, selecione a instituição de teste (Sandbox), em geral:
-   - `ofmockbank_br_retail` (Mockbank)
+   - `ofmockbank_br_retail` (no app aparece como **Nubank**)
 6. Conclua a autenticação no ambiente Sandbox.
 7. Você volta para `/open-finance/callback/success`.
 8. A conexão é salva e o Valora tenta sincronizar.
 
 ### Identidade de teste (Sandbox)
 
-Use a identidade oficial da Belvo para Mockbank (doc OFDA):
+Use a identidade oficial da Belvo para o sandbox Open Finance (doc OFDA):
 
 | Campo | Valor |
 |-------|--------|
@@ -258,7 +258,7 @@ pnpm test -- open-finance-page.test.tsx
 [ ] Web rodando (pnpm dev)
 [ ] Tunnel + webhook Belvo apontando para /api/webhooks/belvo
 [ ] Login no Valora
-[ ] Open Finance → Conectar banco → Mockbank
+[ ] Open Finance → Conectar banco → Nubank (sandbox)
 [ ] Contas/transações visíveis
 [ ] Dashboard refletindo dados importados
 ```

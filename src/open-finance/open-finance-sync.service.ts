@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { BelvoClient } from './belvo/belvo.client';
 import type { BelvoAccount, BelvoTransaction } from './belvo/belvo.types';
 import { CategorizationService } from './categorization/categorization.service';
+import { displayInstitutionName } from './institution-display';
 
 @Injectable()
 export class OpenFinanceSyncService {
@@ -253,8 +254,11 @@ export class OpenFinanceSyncService {
   }
 
   private institutionLabel(account: BelvoAccount): string {
-    if (typeof account.institution === 'string') return account.institution;
-    return account.institution?.name ?? 'Instituição';
+    const raw =
+      typeof account.institution === 'string'
+        ? account.institution
+        : (account.institution?.name ?? 'Instituição');
+    return displayInstitutionName(raw);
   }
 
   private parseDate(value?: string | null): Date {

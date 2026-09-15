@@ -15,10 +15,11 @@ import { BelvoClient } from './belvo/belvo.client';
 import { BelvoApiError } from './belvo/belvo.types';
 import { CategorizationService } from './categorization/categorization.service';
 import { CreateConnectionDto, DemoConnectDto, WidgetTokenDto } from './dto/open-finance.dto';
+import { DISPLAY_BANK_NAME, displayInstitutionName } from './institution-display';
 import { OpenFinanceSyncService } from './open-finance-sync.service';
 
 const DEMO_LINK_PREFIX = 'demo-';
-const DEMO_INSTITUTION = 'Mockbank';
+const DEMO_INSTITUTION = DISPLAY_BANK_NAME;
 
 type DemoTxTemplate = {
   tipo: 'RECEITA' | 'DESPESA';
@@ -151,6 +152,7 @@ export class OpenFinanceService {
 
   async createConnection(userId: string, dto: CreateConnectionDto) {
     await this.usersService.getOrCreateMe(userId);
+    const instituicao = displayInstitutionName(dto.institution);
 
     const existing = await this.prisma.conexaoOpenFinance.findUnique({
       where: { belvoLinkId: dto.belvoLinkId },
@@ -164,7 +166,7 @@ export class OpenFinanceService {
           where: { id: existing.id },
           data: {
             status: 'PENDING',
-            instituicao: dto.institution,
+            instituicao,
             ultimoErro: null,
           },
         });
@@ -176,7 +178,7 @@ export class OpenFinanceService {
       data: {
         idUsuario: userId,
         belvoLinkId: dto.belvoLinkId,
-        instituicao: dto.institution,
+        instituicao,
         status: 'PENDING',
       },
     });
@@ -332,7 +334,7 @@ export class OpenFinanceService {
           dataTransacao,
           origem: 'OPEN_FINANCE',
           idExterno,
-          provedor: 'DEMO',
+          provedor: 'BELVO',
         },
       });
       transactionsImported += 1;

@@ -14,7 +14,7 @@ export type BelvoRuntimeConfig = {
   companyIconUrl: string;
   companyLogoUrl: string;
   companyName: string;
-  /** Sandbox mock institution for Brazil Open Finance. */
+  /** Belvo sandbox institution id for Brazil Open Finance (technical id, not UI label). */
   sandboxInstitution: string;
 };
 

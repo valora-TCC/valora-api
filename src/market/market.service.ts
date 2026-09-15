@@ -53,14 +53,19 @@ const AWESOME_PAIRS = FIAT_CODES.map((c) => `${c}-BRL`).join(',');
 const AWESOME_URL = `https://economia.awesomeapi.com.br/json/last/${AWESOME_PAIRS}`;
 const COINGECKO_URL = `https://api.coingecko.com/api/v3/simple/price?ids=${CRYPTO_META.map((c) => c.id).join(',')}&vs_currencies=brl&include_24hr_change=true`;
 
-/** BCB SGS — fontes: api.bcb.gov.br */
+/** BCB SGS — fontes: api.bcb.gov.br. CDI série 12 é % a.d.; armazenamos anualizado. */
 const BCB_SERIES = [
-  { codigo: 432, nome: 'SELIC', periodo: 'aa' as const },
-  { codigo: 12, nome: 'CDI', periodo: 'aa' as const },
-  { codigo: 433, nome: 'IPCA', periodo: 'mensal' as const },
-  { codigo: 189, nome: 'IGPM', periodo: 'mensal' as const },
-  { codigo: 196, nome: 'POUPANCA', periodo: 'mensal' as const },
+  { codigo: 432, nome: 'SELIC', periodo: 'aa' as const, bcbUnidade: 'aa' as const },
+  { codigo: 12, nome: 'CDI', periodo: 'aa' as const, bcbUnidade: 'ad' as const },
+  { codigo: 433, nome: 'IPCA', periodo: 'mensal' as const, bcbUnidade: 'mensal' as const },
+  { codigo: 189, nome: 'IGPM', periodo: 'mensal' as const, bcbUnidade: 'mensal' as const },
+  { codigo: 196, nome: 'POUPANCA', periodo: 'mensal' as const, bcbUnidade: 'mensal' as const },
 ] as const;
+
+/** Converte CDI diário (SGS 12) para equivalente anual (% a.a., 252 dias úteis). */
+export function anualizarCdiDiario(taxaDiariaPercent: number): number {
+  return (Math.pow(1 + taxaDiariaPercent / 100, 252) - 1) * 100;
+}
 
 const TAXA_NAMES = [...BCB_SERIES.map((s) => s.nome), 'CDB'];
 
@@ -125,14 +130,20 @@ export class MarketService {
       };
     };
 
-    const taxas: MarketTaxaDto[] = taxasDb.map((t) => ({
-      nome: t.nome,
-      valorPercentual: Number(t.valorPercentual),
-      fonte: t.fonte,
-      dataAtualizacao: t.dataAtualizacao.toISOString(),
-      referencia: t.nome === 'CDB' || t.fonte === 'referencia',
-      periodo: this.taxaPeriodo(t.nome),
-    }));
+    const taxas: MarketTaxaDto[] = taxasDb.map((t) => {
+      let valorPercentual = Number(t.valorPercentual);
+      if ((t.nome === 'CDI' || t.nome === 'CDB') && valorPercentual > 0 && valorPercentual < 1) {
+        valorPercentual = anualizarCdiDiario(valorPercentual);
+      }
+      return {
+        nome: t.nome,
+        valorPercentual,
+        fonte: t.fonte,
+        dataAtualizacao: t.dataAtualizacao.toISOString(),
+        referencia: t.nome === 'CDB' || t.fonte === 'referencia',
+        periodo: this.taxaPeriodo(t.nome),
+      };
+    });
 
     return {
       cambio: {
@@ -182,9 +193,18 @@ export class MarketService {
       orderBy: { dataAtualizacao: 'desc' },
     });
     if (!taxa) return null;
+    let valorPercentual = Number(taxa.valorPercentual);
+    // Dados antigos da série 12 podiam estar em % a.d. (< 1); normaliza para % a.a.
+    if (
+      (taxa.nome === 'CDI' || taxa.nome === 'CDB') &&
+      valorPercentual > 0 &&
+      valorPercentual < 1
+    ) {
+      valorPercentual = anualizarCdiDiario(valorPercentual);
+    }
     return {
       nome: taxa.nome,
-      valorPercentual: Number(taxa.valorPercentual),
+      valorPercentual,
       fonte: taxa.fonte,
       dataAtualizacao: taxa.dataAtualizacao.toISOString(),
       referencia: taxa.nome === 'CDB' || taxa.fonte === 'referencia',
@@ -432,8 +452,9 @@ export class MarketService {
     const now = new Date();
 
     for (const serie of BCB_SERIES) {
-      const valor = await this.fetchBcbSerie(serie.codigo);
-      if (valor == null) continue;
+      const raw = await this.fetchBcbSerie(serie.codigo);
+      if (raw == null) continue;
+      const valor = serie.bcbUnidade === 'ad' ? anualizarCdiDiario(raw) : raw;
       if (serie.nome === 'CDI') cdiValue = valor;
 
       await this.upsertTaxa({

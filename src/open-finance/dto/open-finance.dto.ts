@@ -23,7 +23,7 @@ export class CreateConnectionDto {
   @IsUUID()
   belvoLinkId!: string;
 
-  @ApiProperty({ example: 'ofmockbank_br_retail' })
+  @ApiProperty({ example: 'Nubank', description: 'Nome da instituição (exibido no app)' })
   @IsString()
   @MinLength(2)
   @MaxLength(120)
