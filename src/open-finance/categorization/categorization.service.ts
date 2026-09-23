@@ -1,7 +1,14 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
+import { Prisma } from '../../prisma/client';
 import type { TipoFinanceiro } from '../../prisma/client';
-import { FALLBACK_CATEGORY, matchCategoryRule } from './category-rules';
+import { PrismaService } from '../../prisma/prisma.service';
+import { ledgerNamesMatch } from '../ledger-identity';
+import {
+  CATEGORY_ALIASES,
+  colorForCategory,
+  FALLBACK_CATEGORY,
+  matchCategoryRule,
+} from './category-rules';
 
 @Injectable()
 export class CategorizationService {
@@ -22,19 +29,49 @@ export class CategorizationService {
     nome: string,
     tipo: TipoFinanceiro,
   ): Promise<string> {
-    const existing = await this.prisma.categoria.findFirst({
-      where: { idUsuario: userId, nome, tipo, ativo: true },
-    });
-    if (existing) return existing.id;
+    const cor = colorForCategory(nome, tipo);
+    const existing = await this.findReusableCategory(userId, nome, tipo);
+    if (existing) {
+      const needsActivate = !existing.ativo;
+      const needsColor = existing.cor !== cor;
+      if (needsActivate || needsColor) {
+        await this.prisma.categoria.update({
+          where: { id: existing.id },
+          data: {
+            ...(needsActivate ? { ativo: true } : {}),
+            ...(needsColor ? { cor } : {}),
+          },
+        });
+      }
+      return existing.id;
+    }
 
-    const created = await this.prisma.categoria.create({
-      data: {
-        idUsuario: userId,
-        nome,
-        tipo,
-        cor: tipo === 'RECEITA' ? '#16a34a' : '#64748b',
-      },
+    try {
+      const created = await this.prisma.categoria.create({
+        data: {
+          idUsuario: userId,
+          nome,
+          tipo,
+          cor,
+        },
+      });
+      return created.id;
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        const conflict = await this.findReusableCategory(userId, nome, tipo);
+        if (conflict) return conflict.id;
+      }
+      throw error;
+    }
+  }
+
+  private async findReusableCategory(userId: string, nome: string, tipo: TipoFinanceiro) {
+    const categories = await this.prisma.categoria.findMany({
+      where: { idUsuario: userId, tipo },
     });
-    return created.id;
+    const aliases = [nome, ...(CATEGORY_ALIASES[nome] ?? [])];
+    const canonical = categories.find((c) => ledgerNamesMatch(c.nome, nome));
+    if (canonical) return canonical;
+    return categories.find((c) => aliases.some((alias) => ledgerNamesMatch(c.nome, alias))) ?? null;
   }
 }

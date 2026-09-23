@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { parseRangeEnd, parseRangeStart } from '../common/date-range';
+import { getBrazilYearMonth, parseRangeEnd, parseRangeStart } from '../common/date-range';
 import { Prisma } from '../prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { DashboardQueryDto } from './dto/dashboard-query.dto';
@@ -10,9 +10,10 @@ export class DashboardService {
 
   async summary(userId: string, query: DashboardQueryDto) {
     const now = new Date();
+    const { year, month } = getBrazilYearMonth(now);
     const from = query.from
       ? parseRangeStart(query.from)
-      : new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+      : parseRangeStart(`${year}-${String(month).padStart(2, '0')}-01`);
     const to = query.to ? parseRangeEnd(query.to) : now;
 
     const where: Prisma.TransacaoWhereInput = {
@@ -56,6 +57,7 @@ export class DashboardService {
       return {
         categoryId: row.idCategoria,
         categoryName: categoria?.nome ?? 'Sem categoria',
+        color: categoria?.cor ?? null,
         amount: row._sum.valor ?? new Prisma.Decimal(0),
       };
     });
@@ -70,7 +72,7 @@ export class DashboardService {
       totals: {
         income,
         expense,
-        net: new Prisma.Decimal(income).sub(expense),
+        net: totalBalance.add(income).sub(expense),
         balance: totalBalance,
       },
       expensesByCategory,

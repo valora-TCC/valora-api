@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -14,85 +15,23 @@ import { UsersService } from '../users/users.service';
 import { BelvoClient } from './belvo/belvo.client';
 import { BelvoApiError } from './belvo/belvo.types';
 import { CategorizationService } from './categorization/categorization.service';
+import {
+  buildPedroDemoPlanning,
+  buildPedroDemoProfile,
+  CREDIT_CARD_CATEGORY_HINT,
+  DEMO_ALLOWED_CPF,
+  DEMO_IDENTITY_ERROR,
+  DEMO_INVESTMENT_TICKER_PREFIX,
+  DEMO_PLANNING_TAG,
+  isAllowedDemoIdentity,
+} from './demo-pedro-profile';
 import { CreateConnectionDto, DemoConnectDto, WidgetTokenDto } from './dto/open-finance.dto';
 import { DISPLAY_BANK_NAME, displayInstitutionName } from './institution-display';
 import { OpenFinanceSyncService } from './open-finance-sync.service';
+import { upsertOpenFinanceCarteira } from './upsert-carteira';
 
 const DEMO_LINK_PREFIX = 'demo-';
 const DEMO_INSTITUTION = DISPLAY_BANK_NAME;
-
-type DemoTxTemplate = {
-  tipo: 'RECEITA' | 'DESPESA';
-  descricao: string;
-  baseValor: number;
-  daysAgo: number;
-  account: 'checking' | 'savings';
-};
-
-const DEMO_TX_POOL: DemoTxTemplate[] = [
-  {
-    tipo: 'RECEITA',
-    descricao: 'SALARIO EMPRESA',
-    baseValor: 4800,
-    daysAgo: 3,
-    account: 'checking',
-  },
-  {
-    tipo: 'RECEITA',
-    descricao: 'FREELANCE DESIGN',
-    baseValor: 1500,
-    daysAgo: 6,
-    account: 'checking',
-  },
-  { tipo: 'RECEITA', descricao: 'PIX RECEBIDO', baseValor: 250, daysAgo: 1, account: 'savings' },
-  {
-    tipo: 'RECEITA',
-    descricao: 'RENDIMENTO POUPANCA',
-    baseValor: 45,
-    daysAgo: 2,
-    account: 'savings',
-  },
-  { tipo: 'DESPESA', descricao: 'IFOOD *PEDIDO', baseValor: 72, daysAgo: 2, account: 'checking' },
-  { tipo: 'DESPESA', descricao: 'UBER TRIP', baseValor: 28, daysAgo: 2, account: 'checking' },
-  {
-    tipo: 'DESPESA',
-    descricao: 'NETFLIX ASSINATURA',
-    baseValor: 55.9,
-    daysAgo: 5,
-    account: 'checking',
-  },
-  {
-    tipo: 'DESPESA',
-    descricao: 'SPOTIFY PREMIUM',
-    baseValor: 34.9,
-    daysAgo: 7,
-    account: 'checking',
-  },
-  {
-    tipo: 'DESPESA',
-    descricao: 'ALUGUEL APARTAMENTO',
-    baseValor: 1800,
-    daysAgo: 8,
-    account: 'checking',
-  },
-  { tipo: 'DESPESA', descricao: 'MERCADO EXTRA', baseValor: 210, daysAgo: 1, account: 'checking' },
-  {
-    tipo: 'DESPESA',
-    descricao: 'FARMACIA DROGASIL',
-    baseValor: 89,
-    daysAgo: 4,
-    account: 'checking',
-  },
-  { tipo: 'DESPESA', descricao: 'POSTO IPIRANGA', baseValor: 180, daysAgo: 3, account: 'checking' },
-  {
-    tipo: 'DESPESA',
-    descricao: 'ACADEMIA SMARTFIT',
-    baseValor: 129.9,
-    daysAgo: 9,
-    account: 'checking',
-  },
-  { tipo: 'DESPESA', descricao: 'RAPPI *PEDIDO', baseValor: 54.5, daysAgo: 4, account: 'checking' },
-];
 
 @Injectable()
 export class OpenFinanceService {
@@ -198,25 +137,7 @@ export class OpenFinanceService {
       }
     }
 
-    const carteiras = await this.prisma.carteira.findMany({
-      where: { idConexaoOf: conexao.id, idUsuario: userId },
-      select: { id: true },
-    });
-    const carteiraIds = carteiras.map((c) => c.id);
-
-    if (carteiraIds.length > 0) {
-      // Remove OF ledger rows so they disappear from dashboard/transações.
-      await this.prisma.transacao.deleteMany({
-        where: {
-          idCarteira: { in: carteiraIds },
-          origem: 'OPEN_FINANCE',
-        },
-      });
-      await this.prisma.carteira.updateMany({
-        where: { id: { in: carteiraIds } },
-        data: { ativo: false, saldoAtual: 0 },
-      });
-    }
+    await this.purgeOpenFinanceLedger(userId, conexao.id);
 
     return this.prisma.conexaoOpenFinance.update({
       where: { id: conexao.id },
@@ -225,8 +146,7 @@ export class OpenFinanceService {
   }
 
   /**
-   * Sandbox Open Finance connect: seeds accounts/transactions keyed by CPF
-   * (different CPF → different ledger sample). No Belvo widget required.
+   * Sandbox Open Finance connect: only Pedro's identity; seeds Nubank checking + credit card.
    */
   async seedDemo(userId: string, email: string | undefined, dto: DemoConnectDto) {
     if (!this.isDemoEnabled()) {
@@ -236,6 +156,10 @@ export class OpenFinanceService {
     await this.usersService.getOrCreateMe(userId, email);
     const cpf = this.normalizeCpf(dto.cpf);
     const fullName = dto.fullName.trim().slice(0, 120);
+
+    if (!isAllowedDemoIdentity(cpf, fullName)) {
+      throw new ForbiddenException(DEMO_IDENTITY_ERROR);
+    }
 
     await this.prisma.usuario.update({
       where: { id: userId },
@@ -259,7 +183,7 @@ export class OpenFinanceService {
       });
     }
 
-    const belvoLinkId = `${DEMO_LINK_PREFIX}${cpf}`;
+    const belvoLinkId = `${DEMO_LINK_PREFIX}${DEMO_ALLOWED_CPF}`;
     let conexao = await this.prisma.conexaoOpenFinance.findUnique({
       where: { belvoLinkId },
     });
@@ -290,43 +214,58 @@ export class OpenFinanceService {
       });
     }
 
-    const profile = this.buildDemoProfile(cpf, fullName);
-    const checkingExt = `demo-acc-checking-${cpf}`;
-    const savingsExt = `demo-acc-savings-${cpf}`;
+    return this.applyPedroDemoLedger(userId, conexao.id);
+  }
 
-    const checking = await this.upsertDemoCarteira({
+  /**
+   * Replaces the sandbox ledger with the current Pedro demo profile
+   * (used by connect and by Sincronizar).
+   */
+  private async applyPedroDemoLedger(userId: string, connectionId: string) {
+    const profile = buildPedroDemoProfile();
+    const checkingExt = `demo-acc-checking-${DEMO_ALLOWED_CPF}`;
+    const creditExt = `demo-acc-credit-${DEMO_ALLOWED_CPF}`;
+
+    const checking = await upsertOpenFinanceCarteira(this.prisma, {
       userId,
-      connectionId: conexao.id,
+      connectionId,
       idContaExterna: checkingExt,
       nome: 'Conta Corrente',
+      descricao: `Open Finance · ${DEMO_INSTITUTION}`,
+      instituicaoOf: DEMO_INSTITUTION,
       tipoContaOf: 'checking',
+      moedaOf: 'BRL',
       saldoAtual: profile.checkingBalance,
     });
-    const savings = await this.upsertDemoCarteira({
+    const creditCard = await upsertOpenFinanceCarteira(this.prisma, {
       userId,
-      connectionId: conexao.id,
-      idContaExterna: savingsExt,
-      nome: 'Poupança',
-      tipoContaOf: 'savings',
-      saldoAtual: profile.savingsBalance,
+      connectionId,
+      idContaExterna: creditExt,
+      nome: 'Cartão de Crédito',
+      descricao: `Open Finance · ${DEMO_INSTITUTION} · Fatura aberta`,
+      instituicaoOf: DEMO_INSTITUTION,
+      tipoContaOf: 'credit_card',
+      moedaOf: 'BRL',
+      saldoAtual: profile.creditCardBalance,
     });
 
     let transactionsImported = 0;
     const transactionsSkipped = 0;
 
     for (const [index, tx] of profile.transactions.entries()) {
-      const idExterno = `demo-tx-${cpf}-${index + 1}`;
+      const idExterno = `demo-tx-${DEMO_ALLOWED_CPF}-${index + 1}`;
+      const categorySource =
+        tx.account === 'credit_card' ? CREDIT_CARD_CATEGORY_HINT : tx.descricao;
       const idCategoria = await this.categorization.resolveCategoryId(
         userId,
-        tx.descricao,
+        categorySource,
         tx.tipo,
       );
-      const dataTransacao = new Date();
-      dataTransacao.setUTCDate(dataTransacao.getUTCDate() - tx.daysAgo);
+      const dataTransacao = new Date(`${tx.date}T15:00:00.000Z`);
 
       await this.prisma.transacao.create({
         data: {
-          idCarteira: tx.account === 'checking' ? checking.id : savings.id,
+          idCarteira: tx.account === 'checking' ? checking.id : creditCard.id,
           idCategoria,
           tipo: tx.tipo,
           valor: new Prisma.Decimal(tx.valor.toFixed(2)),
@@ -340,8 +279,10 @@ export class OpenFinanceService {
       transactionsImported += 1;
     }
 
+    const planning = await this.applyPedroDemoPlanning(userId);
+
     const updated = await this.prisma.conexaoOpenFinance.update({
-      where: { id: conexao.id },
+      where: { id: connectionId },
       data: {
         status: 'ACTIVE',
         ultimaSincronizacao: new Date(),
@@ -369,8 +310,108 @@ export class OpenFinanceService {
       accountsImported: 2,
       transactionsImported,
       transactionsSkipped,
+      metasImported: planning.metasImported,
+      orcamentosImported: planning.orcamentosImported,
+      investmentsImported: planning.investmentsImported,
       demo: true as const,
     };
+  }
+
+  private async applyPedroDemoPlanning(userId: string) {
+    const planning = buildPedroDemoPlanning();
+
+    await this.prisma.progressoMeta.deleteMany({
+      where: { meta: { idUsuario: userId, descricao: DEMO_PLANNING_TAG } },
+    });
+    await this.prisma.meta.deleteMany({
+      where: { idUsuario: userId, descricao: DEMO_PLANNING_TAG },
+    });
+    await this.prisma.orcamento.deleteMany({
+      where: { idUsuario: userId, observacao: DEMO_PLANNING_TAG },
+    });
+    await this.prisma.investment.deleteMany({
+      where: { userId, ticker: { startsWith: DEMO_INVESTMENT_TICKER_PREFIX } },
+    });
+
+    let metasImported = 0;
+    for (const item of planning.metas) {
+      await this.prisma.meta.create({
+        data: {
+          idUsuario: userId,
+          nome: item.nome,
+          descricao: item.descricao,
+          valorObjetivo: new Prisma.Decimal(item.valorObjetivo.toFixed(2)),
+          valorAtual: new Prisma.Decimal(item.valorAtual.toFixed(2)),
+          dataInicio: new Date(`${item.dataInicio}T00:00:00.000Z`),
+          dataFim: new Date(`${item.dataFim}T00:00:00.000Z`),
+          progressos: {
+            create: item.progressos.map((p) => ({
+              data: new Date(`${p.data}T00:00:00.000Z`),
+              valor: new Prisma.Decimal(p.valor.toFixed(2)),
+              observacao: p.observacao,
+            })),
+          },
+        },
+      });
+      metasImported += 1;
+    }
+
+    let orcamentosImported = 0;
+    for (const item of planning.orcamentos) {
+      const categorias = [];
+      for (const line of item.categorias) {
+        const idCategoria = await this.categorization.resolveCategoryId(
+          userId,
+          line.hint,
+          'DESPESA',
+        );
+        categorias.push({
+          idCategoria,
+          limite: new Prisma.Decimal(line.limite.toFixed(2)),
+        });
+      }
+
+      await this.prisma.orcamento.create({
+        data: {
+          idUsuario: userId,
+          mes: item.mes,
+          ano: item.ano,
+          nome: item.nome,
+          valorTotal: new Prisma.Decimal(item.valorTotal.toFixed(2)),
+          observacao: item.observacao,
+          categorias: { create: categorias },
+        },
+      });
+      orcamentosImported += 1;
+    }
+
+    let investmentsImported = 0;
+    for (const item of planning.investments) {
+      await this.prisma.investment.create({
+        data: {
+          userId,
+          name: item.name,
+          type: item.type,
+          ticker: item.ticker,
+          currency: 'BRL',
+          quantity: new Prisma.Decimal(item.quantity.toFixed(8)),
+          averagePrice: new Prisma.Decimal(item.averagePrice.toFixed(2)),
+          transactions: {
+            create: item.transactions.map((tx) => ({
+              userId,
+              kind: tx.kind,
+              quantity: new Prisma.Decimal(tx.quantity.toFixed(8)),
+              unitPrice: new Prisma.Decimal(tx.unitPrice.toFixed(2)),
+              occurredAt: new Date(tx.occurredAt),
+              notes: tx.notes,
+            })),
+          },
+        },
+      });
+      investmentsImported += 1;
+    }
+
+    return { metasImported, orcamentosImported, investmentsImported };
   }
 
   private async purgeOpenFinanceLedger(userId: string, connectionId: string) {
@@ -387,93 +428,37 @@ export class OpenFinanceService {
         origem: 'OPEN_FINANCE',
       },
     });
-    await this.prisma.carteira.updateMany({
-      where: { id: { in: carteiraIds } },
-      data: { ativo: false, saldoAtual: 0 },
-    });
-  }
 
-  /** Deterministic sample ledger from CPF digits (different CPF → different values). */
-  private buildDemoProfile(cpf: string, fullName: string) {
-    const seed = Number(cpf.slice(-6)) || 1;
-    const mul = (n: number) => ((seed * (n + 17)) % 1000) / 1000;
-    const pick = <T>(items: T[], count: number, offset: number): T[] => {
-      const out: T[] = [];
-      for (let i = 0; i < count; i += 1) {
-        out.push(items[(offset + i * 3 + (seed % items.length)) % items.length]!);
-      }
-      return out;
+    const remaining = await this.prisma.transacao.groupBy({
+      by: ['idCarteira'],
+      where: { idCarteira: { in: carteiraIds }, ativo: true },
+      _count: { _all: true },
+    });
+    const keep = new Set(
+      remaining.filter((row) => row._count._all > 0).map((row) => row.idCarteira),
+    );
+    const keepIds = carteiraIds.filter((id) => keep.has(id));
+    const dropIds = carteiraIds.filter((id) => !keep.has(id));
+    const unlink = {
+      idConexaoOf: null,
+      idContaExterna: null,
+      instituicaoOf: null,
+      tipoContaOf: null,
+      moedaOf: null,
     };
 
-    const firstName = fullName.split(/\s+/)[0] ?? 'Cliente';
-    const checkingBalance = Number((1800 + mul(1) * 4200).toFixed(2));
-    const savingsBalance = Number((400 + mul(2) * 2600).toFixed(2));
-    const templates = pick(DEMO_TX_POOL, 8, seed % DEMO_TX_POOL.length);
-
-    const transactions = templates.map((t, i) => {
-      const factor = 0.7 + mul(i + 3) * 0.9;
-      let descricao = t.descricao;
-      if (t.descricao === 'SALARIO EMPRESA') {
-        descricao = `SALARIO ${firstName.toUpperCase()}`;
-      }
-      if (t.descricao === 'PIX RECEBIDO') {
-        descricao = `PIX RECEBIDO ${firstName.toUpperCase()}`;
-      }
-      return {
-        tipo: t.tipo,
-        descricao,
-        valor: Number((t.baseValor * factor).toFixed(2)),
-        daysAgo: t.daysAgo + (seed % 3),
-        account: t.account,
-      };
-    });
-
-    return { checkingBalance, savingsBalance, transactions };
-  }
-
-  private async upsertDemoCarteira(input: {
-    userId: string;
-    connectionId: string;
-    idContaExterna: string;
-    nome: string;
-    tipoContaOf: string;
-    saldoAtual: number;
-  }) {
-    const existing = await this.prisma.carteira.findFirst({
-      where: { idContaExterna: input.idContaExterna },
-    });
-    if (existing) {
-      if (existing.idUsuario !== input.userId) {
-        throw new ConflictException('Conta já associada a outro usuário');
-      }
-      return this.prisma.carteira.update({
-        where: { id: existing.id },
-        data: {
-          nome: input.nome,
-          descricao: `Open Finance · ${DEMO_INSTITUTION}`,
-          idConexaoOf: input.connectionId,
-          instituicaoOf: DEMO_INSTITUTION,
-          tipoContaOf: input.tipoContaOf,
-          moedaOf: 'BRL',
-          saldoAtual: input.saldoAtual,
-          ativo: true,
-        },
+    if (keepIds.length > 0) {
+      await this.prisma.carteira.updateMany({
+        where: { id: { in: keepIds } },
+        data: { ...unlink, ativo: true },
       });
     }
-
-    return this.prisma.carteira.create({
-      data: {
-        idUsuario: input.userId,
-        nome: input.nome,
-        descricao: `Open Finance · ${DEMO_INSTITUTION}`,
-        saldoAtual: input.saldoAtual,
-        idConexaoOf: input.connectionId,
-        idContaExterna: input.idContaExterna,
-        instituicaoOf: DEMO_INSTITUTION,
-        tipoContaOf: input.tipoContaOf,
-        moedaOf: 'BRL',
-      },
-    });
+    if (dropIds.length > 0) {
+      await this.prisma.carteira.updateMany({
+        where: { id: { in: dropIds } },
+        data: { ...unlink, ativo: false, saldoAtual: 0 },
+      });
+    }
   }
 
   private isDemoEnabled(): boolean {
@@ -508,7 +493,18 @@ export class OpenFinanceService {
   }
 
   async sync(userId: string, connectionId: string) {
-    await this.findOwnedConnection(userId, connectionId);
+    const conexao = await this.findOwnedConnection(userId, connectionId);
+
+    // Demo sandbox: re-apply current Pedro ledger so "Sincronizar" picks up new sample data.
+    if (conexao.belvoLinkId.startsWith(DEMO_LINK_PREFIX)) {
+      await this.prisma.conexaoOpenFinance.update({
+        where: { id: conexao.id },
+        data: { status: 'SYNCING', ultimoErro: null },
+      });
+      await this.purgeOpenFinanceLedger(userId, conexao.id);
+      return this.applyPedroDemoLedger(userId, conexao.id);
+    }
+
     try {
       return await this.syncService.syncConnection(connectionId, userId);
     } catch (error) {

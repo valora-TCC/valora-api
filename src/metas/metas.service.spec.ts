@@ -41,10 +41,14 @@ describe('MetasService', () => {
         id: 'm1',
         valorAtual: new Prisma.Decimal(25),
         valorObjetivo: new Prisma.Decimal(100),
+        dataInicio: new Date('2026-01-01T12:00:00.000Z'),
+        dataFim: new Date('2026-12-31T12:00:00.000Z'),
         progressos: [],
       },
     ]);
     const result = await service.findAll('user-1');
     expect(result[0].percentual).toBe(25);
+    expect(result[0].dataInicio).toBe('2026-01-01');
+    expect(result[0].dataFim).toBe('2026-12-31');
   });
 });

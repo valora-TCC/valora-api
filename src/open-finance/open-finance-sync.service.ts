@@ -1,10 +1,12 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '../prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { BelvoClient } from './belvo/belvo.client';
 import type { BelvoAccount, BelvoTransaction } from './belvo/belvo.types';
 import { CategorizationService } from './categorization/categorization.service';
 import { displayInstitutionName } from './institution-display';
+import { parseCivilDateTime } from '../common/date-range';
+import { upsertOpenFinanceCarteira } from './upsert-carteira';
 
 @Injectable()
 export class OpenFinanceSyncService {
@@ -33,7 +35,8 @@ export class OpenFinanceSyncService {
       data: { status: 'SYNCING', ultimoErro: null },
     });
 
-    // Demo connections never hit Belvo — keep local sample data.
+    // Demo connections are refreshed by OpenFinanceService.sync (full ledger re-seed).
+    // Keep a no-op here only if syncService is invoked directly for a demo link.
     if (conexao.belvoLinkId.startsWith('demo-')) {
       const updated = await this.prisma.conexaoOpenFinance.update({
         where: { id: conexao.id },
@@ -116,46 +119,18 @@ export class OpenFinanceSyncService {
         `Conta ${institutionName}`;
       const saldo = this.extractBalance(account);
 
-      const existing = await this.prisma.carteira.findFirst({
-        where: { idContaExterna: account.id },
+      const saved = await upsertOpenFinanceCarteira(this.prisma, {
+        userId,
+        connectionId,
+        idContaExterna: account.id,
+        nome,
+        descricao: `Open Finance · ${institutionName}`,
+        instituicaoOf: institutionName,
+        tipoContaOf: account.type ?? account.category ?? null,
+        moedaOf: account.currency ?? 'BRL',
+        saldoAtual: saldo,
       });
-
-      if (existing) {
-        if (existing.idUsuario !== userId) {
-          throw new BadRequestException('Conta externa já associada a outro usuário');
-        }
-        const updated = await this.prisma.carteira.update({
-          where: { id: existing.id },
-          data: {
-            nome,
-            descricao: `Open Finance · ${institutionName}`,
-            idConexaoOf: connectionId,
-            instituicaoOf: institutionName,
-            tipoContaOf: account.type ?? account.category ?? null,
-            moedaOf: (account.currency ?? 'BRL').slice(0, 3),
-            ativo: true,
-            // temporary; final Belvo balance applied after transactions
-            saldoAtual: existing.saldoAtual,
-          },
-        });
-        map.set(account.id, updated.id);
-        continue;
-      }
-
-      const created = await this.prisma.carteira.create({
-        data: {
-          idUsuario: userId,
-          nome,
-          descricao: `Open Finance · ${institutionName}`,
-          saldoAtual: saldo,
-          idConexaoOf: connectionId,
-          idContaExterna: account.id,
-          instituicaoOf: institutionName,
-          tipoContaOf: account.type ?? account.category ?? null,
-          moedaOf: (account.currency ?? 'BRL').slice(0, 3),
-        },
-      });
-      map.set(account.id, created.id);
+      map.set(account.id, saved.id);
     }
 
     return map;
@@ -262,8 +237,6 @@ export class OpenFinanceSyncService {
   }
 
   private parseDate(value?: string | null): Date {
-    if (!value) return new Date();
-    const d = new Date(value);
-    return Number.isNaN(d.getTime()) ? new Date() : d;
+    return parseCivilDateTime(value);
   }
 }

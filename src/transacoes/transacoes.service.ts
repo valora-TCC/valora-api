@@ -76,13 +76,13 @@ export class TransacoesService {
   async create(userId: string, dto: CreateTransacaoDto) {
     await this.usersService.getOrCreateMe(userId);
     await this.assertCarteiraOwnership(userId, dto.idCarteira);
-    await this.assertCategoriaOwnership(userId, dto.idCategoria);
+    const categoria = await this.assertCategoriaOwnership(userId, dto.idCategoria);
 
     const created = await this.prisma.transacao.create({
       data: {
         idCarteira: dto.idCarteira,
         idCategoria: dto.idCategoria,
-        tipo: dto.tipo,
+        tipo: categoria.tipo,
         valor: dto.valor,
         dataTransacao: new Date(dto.dataTransacao),
         descricao: dto.descricao,
@@ -99,8 +99,10 @@ export class TransacoesService {
     if (dto.idCarteira) {
       await this.assertCarteiraOwnership(userId, dto.idCarteira);
     }
+    let tipo = dto.tipo;
     if (dto.idCategoria) {
-      await this.assertCategoriaOwnership(userId, dto.idCategoria);
+      const categoria = await this.assertCategoriaOwnership(userId, dto.idCategoria);
+      tipo = categoria.tipo;
     }
 
     const updated = await this.prisma.transacao.update({
@@ -108,7 +110,7 @@ export class TransacoesService {
       data: {
         idCarteira: dto.idCarteira,
         idCategoria: dto.idCategoria,
-        tipo: dto.tipo,
+        tipo,
         valor: dto.valor,
         dataTransacao: dto.dataTransacao ? new Date(dto.dataTransacao) : undefined,
         descricao: dto.descricao,
@@ -151,5 +153,6 @@ export class TransacoesService {
     if (!categoria) {
       throw new BadRequestException('Invalid categoria');
     }
+    return categoria;
   }
 }

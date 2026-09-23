@@ -1,5 +1,5 @@
 import type { ReportPayload } from './report.types';
-import { formatBrl, formatDate } from './report.types';
+import { formatBrl, formatDate, formatDateOnly } from './report.types';
 
 function escapeHtml(value: string): string {
   return value
@@ -35,8 +35,8 @@ export function buildReportHtml(payload: ReportPayload): string {
             formatBrl(m.valorObjetivo),
             formatBrl(m.valorAtual),
             `${m.percentual.toFixed(2)}%`,
-            formatDate(m.dataInicio),
-            formatDate(m.dataFim),
+            formatDateOnly(m.dataInicio),
+            formatDateOnly(m.dataFim),
           ]),
         )}
       </section>
@@ -103,7 +103,7 @@ export function buildReportHtml(payload: ReportPayload): string {
         <ul class="totals">
           <li>Receitas: ${formatBrl(d.totals.income)}</li>
           <li>Despesas: ${formatBrl(d.totals.expense)}</li>
-          <li>Saldo do período: ${formatBrl(d.totals.net)}</li>
+          <li>Resultado: ${formatBrl(d.totals.net)}</li>
           <li>Saldo nas carteiras: ${formatBrl(d.totals.balance)}</li>
         </ul>
         <h3>Despesas por categoria</h3>
