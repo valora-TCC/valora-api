@@ -44,7 +44,6 @@ export class BelvoClient {
   }): Promise<BelvoWidgetTokenResponse> {
     this.assertConfigured();
     const base = this.cfg.widgetCallbackBaseUrl;
-    // Payload alinhado ao exemplo oficial OFDA da Belvo (Hosted Widget).
     const body: BelvoWidgetTokenRequest = {
       id: this.cfg.secretId!,
       password: this.cfg.secretPassword!,
@@ -59,7 +58,6 @@ export class BelvoClient {
           exit: `${base}/open-finance/callback/exit`,
           event: `${base}/open-finance/callback/event`,
         },
-        // OFDA exige branding; sem isso o Hosted Widget costuma abrir em tela branca.
         branding: {
           company_icon: this.cfg.companyIconUrl,
           company_logo: this.cfg.companyLogoUrl,
