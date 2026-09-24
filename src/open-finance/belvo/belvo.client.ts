@@ -81,7 +81,6 @@ export class BelvoClient {
       },
     };
 
-    // OpenAPI Belvo: /api/token/ usa basicAuth; id/password também vão no body (OFDA).
     return this.request<BelvoWidgetTokenResponse>('POST', '/api/token/', body, {
       useBasicAuth: true,
     });
@@ -190,7 +189,6 @@ export class BelvoClient {
           detail = errBody.message;
         }
       } catch {
-        // ignore parse errors
       }
       this.logger.warn(
         `Belvo responded ${response.status} for ${method} ${path} code=${code}${detail ? ` detail=${detail}` : ''}`,

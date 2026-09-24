@@ -45,3 +45,5 @@ prisma/*.db-journal
 
 # misc
 *.tsbuildinfo
+*.dump
+*.sql.bak

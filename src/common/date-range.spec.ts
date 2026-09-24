@@ -23,7 +23,6 @@ describe('date-range helpers', () => {
   });
 
   it('getBrazilYearMonth uses America/Sao_Paulo calendar', () => {
-    // 2026-04-01 02:30 UTC == 2026-03-31 23:30 BRT
     const lateEveningUtc = new Date('2026-04-01T02:30:00.000Z');
     expect(getBrazilYearMonth(lateEveningUtc)).toEqual({ year: 2026, month: 3 });
   });

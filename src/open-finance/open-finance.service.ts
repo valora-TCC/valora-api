@@ -145,9 +145,6 @@ export class OpenFinanceService {
     });
   }
 
-  /**
-   * Sandbox Open Finance connect: only Pedro's identity; seeds Nubank checking + credit card.
-   */
   async seedDemo(userId: string, email: string | undefined, dto: DemoConnectDto) {
     if (!this.isDemoEnabled()) {
       throw new ServiceUnavailableException('Conexão Open Finance indisponível no momento.');
@@ -166,7 +163,6 @@ export class OpenFinanceService {
       data: { cpf, nome: fullName },
     });
 
-    // One active sandbox connection per user — replace previous sample data.
     const existingActive = await this.prisma.conexaoOpenFinance.findMany({
       where: {
         idUsuario: userId,
@@ -217,10 +213,6 @@ export class OpenFinanceService {
     return this.applyPedroDemoLedger(userId, conexao.id);
   }
 
-  /**
-   * Replaces the sandbox ledger with the current Pedro demo profile
-   * (used by connect and by Sincronizar).
-   */
   private async applyPedroDemoLedger(userId: string, connectionId: string) {
     const profile = buildPedroDemoProfile();
     const checkingExt = `demo-acc-checking-${DEMO_ALLOWED_CPF}`;
@@ -495,7 +487,6 @@ export class OpenFinanceService {
   async sync(userId: string, connectionId: string) {
     const conexao = await this.findOwnedConnection(userId, connectionId);
 
-    // Demo sandbox: re-apply current Pedro ledger so "Sincronizar" picks up new sample data.
     if (conexao.belvoLinkId.startsWith(DEMO_LINK_PREFIX)) {
       await this.prisma.conexaoOpenFinance.update({
         where: { id: conexao.id },
@@ -531,7 +522,6 @@ export class OpenFinanceService {
   }
 
   private buildWidgetUrl(accessToken: string): string {
-    // Mínimo OFDA da doc Belvo; extras opcionais costumam quebrar o Hosted Widget revamp.
     const params = new URLSearchParams({
       access_token: accessToken,
       locale: 'pt',

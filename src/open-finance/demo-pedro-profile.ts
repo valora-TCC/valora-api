@@ -6,7 +6,6 @@ export const DEMO_ALLOWED_NAME = 'Pedro Gomes de Almeida';
 export const DEMO_IDENTITY_ERROR =
   'Não foi possível conectar. CPF ou nome do titular não conferem.';
 
-/** Description hint used so credit-card ledger rows map to category "Cartão de Crédito". */
 export const CREDIT_CARD_CATEGORY_HINT = 'CARTAO DE CREDITO NUBANK';
 
 export type DemoAccountKind = 'checking' | 'credit_card';
@@ -15,7 +14,6 @@ export type DemoTransaction = {
   tipo: 'RECEITA' | 'DESPESA';
   descricao: string;
   valor: number;
-  /** ISO date YYYY-MM-DD (calendar day in America/Sao_Paulo intent). */
   date: string;
   account: DemoAccountKind;
 };
@@ -64,7 +62,6 @@ export type DemoInvestmentSeed = {
   }[];
 };
 
-/** Mask PII: keep first 3 characters, replace the rest with asterisks. */
 export function maskSecret(value: string): string {
   const trimmed = value.trim();
   if (trimmed.length <= 3) return trimmed;
@@ -89,7 +86,6 @@ function pixEnviado(name: string, key: string): string {
   return `PIX ENVIADO · ${maskSecret(name)} · ${maskSecret(key)}`;
 }
 
-/** Telefone como chave PIX (DDD 16 + 99…). */
 function pixPhone(suffix: string): string {
   return `1699${suffix}`;
 }
@@ -99,23 +95,15 @@ const SPOTIFY_PRICE = 23.9;
 const MONTHLY_TRANSFER = 2000;
 const MONTHLY_INVESTMENT = 300;
 
-/** Fatura já paga (jul/ago) — usada no pagamento via conta corrente. */
 const PAID_BILL_JUL = Number(
   (NETFLIX_PRICE + SPOTIFY_PRICE + 28.5 + 54.9 + 119.9).toFixed(2),
-); // Uber + iFood + Netshoes
+);
 const PAID_BILL_AUG = Number(
   (NETFLIX_PRICE + SPOTIFY_PRICE + 22.4 + 41.8 + 67.2 + 189.9).toFixed(2),
-); // Uber + 99 Food + iFood + Mercado Livre
+);
 
-/**
- * Fixed Nubank sandbox ledger for Pedro:
- * - Salary R$ 3.000 stays elsewhere; only R$ 2.000/month lands on Nubank.
- * - Small monthly CDB application.
- * - Credit-card open bill — Uber, 99 Food, iFood, Netshoes, Mercado Livre + streamings.
- */
 export function buildPedroDemoProfile(): DemoPedroProfile {
   const transactions: DemoTransaction[] = [
-    // —— Julho 2026 (corrente) ——
     {
       tipo: 'RECEITA',
       descricao: pixRecebido('Conta Externa', 'ext.pedro.salario@email.com'),
@@ -166,7 +154,6 @@ export function buildPedroDemoProfile(): DemoPedroProfile {
       account: 'checking',
     },
 
-    // —— Agosto 2026 (corrente) ——
     {
       tipo: 'RECEITA',
       descricao: pixRecebido('Conta Externa', 'ext.pedro.salario@email.com'),
@@ -224,7 +211,6 @@ export function buildPedroDemoProfile(): DemoPedroProfile {
       account: 'checking',
     },
 
-    // —— Setembro 2026 (corrente) ——
     {
       tipo: 'RECEITA',
       descricao: pixRecebido('Conta Externa', 'ext.pedro.salario@email.com'),
@@ -275,7 +261,6 @@ export function buildPedroDemoProfile(): DemoPedroProfile {
       account: 'checking',
     },
 
-    // —— Fatura aberta do cartão (set/2026) ——
     {
       tipo: 'DESPESA',
       descricao: 'NETFLIX PREMIUM',
@@ -352,7 +337,6 @@ export function buildPedroDemoProfile(): DemoPedroProfile {
   };
 }
 
-/** Goals + monthly budgets + investments aligned with the Nubank demo ledger. */
 export function buildPedroDemoPlanning(): {
   metas: DemoMetaSeed[];
   orcamentos: DemoOrcamentoSeed[];

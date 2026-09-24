@@ -1,5 +1,3 @@
-/** Types aligned with Belvo Aggregation / OFDA Brazil API responses used by Valora. */
-
 export type BelvoWidgetTokenRequest = {
   id: string;
   password: string;

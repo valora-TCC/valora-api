@@ -30,7 +30,6 @@ export class CreateConnectionDto {
   institution!: string;
 }
 
-/** Body for sandbox Open Finance connect (local seed keyed by CPF). */
 export class DemoConnectDto {
   @ApiProperty({ description: 'CPF com 11 dígitos (somente números)' })
   @IsString()

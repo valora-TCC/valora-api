@@ -78,13 +78,11 @@ export function formatBrl(value: number): string {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 }
 
-/** Timestamps shown in America/Sao_Paulo. */
 export function formatDate(value: Date | string): string {
   const date = value instanceof Date ? value : new Date(value);
   return new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo' }).format(date);
 }
 
-/** `@db.Date` values stored as UTC midnight — use UTC calendar day. */
 export function formatDateOnly(value: Date | string): string {
   const date = value instanceof Date ? value : new Date(value);
   return new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' }).format(date);

@@ -46,7 +46,6 @@ model Usuario {
   id             String    @id @map("id_usuario") @db.Uuid
   nome           String
   email          String?   @unique
-  /// CPF digits only (optional until Open Finance connect).
   cpf            String?   @unique @db.VarChar(11)
   dataNascimento DateTime? @map("data_nascimento") @db.Date
   dataCriacao    DateTime  @default(now()) @map("data_criacao") @db.Timestamptz(6)
@@ -75,7 +74,6 @@ model Carteira {
   dataCriacao     DateTime @default(now()) @map("data_criacao") @db.Timestamptz(6)
   ativo           Boolean  @default(true)
   idConexaoOf     String?  @map("id_conexao_of") @db.Uuid
-  /// Belvo account id — used for idempotent account sync.
   idContaExterna  String?  @unique @map("id_conta_externa")
   instituicaoOf   String?  @map("instituicao_of")
   tipoContaOf     String?  @map("tipo_conta_of")
@@ -120,7 +118,6 @@ model Transacao {
   formaPagamento String?         @map("forma_pagamento")
   ativo          Boolean         @default(true)
   origem         OrigemTransacao @default(MANUAL)
-  /// Belvo transaction id — unique when set for Open Finance idempotency.
   idExterno      String?         @unique @map("id_externo")
   provedor       String?         @db.VarChar(32)
 
@@ -134,7 +131,6 @@ model Transacao {
   @@map("transacao")
 }
 
-/// Extra: Open Finance Belvo connection (Link).
 model ConexaoOpenFinance {
   id                   String                    @id @default(dbgenerated("gen_random_uuid()")) @map("id_conexao") @db.Uuid
   idUsuario            String                    @map("id_usuario") @db.Uuid
@@ -154,7 +150,6 @@ model ConexaoOpenFinance {
   @@map("conexao_open_finance")
 }
 
-/// Extra: webhook / sync event idempotency log.
 model EventoSyncOpenFinance {
   id            String                       @id @default(dbgenerated("gen_random_uuid()")) @map("id_evento") @db.Uuid
   idConexao     String?                      @map("id_conexao") @db.Uuid
@@ -278,11 +273,8 @@ model Conteudo {
   id             String    @id @default(dbgenerated("gen_random_uuid()")) @map("id_conteudo") @db.Uuid
   titulo         String
   descricao      String?
-  /// Short body / markdown educational text
   corpo          String?
-  /// iniciante | intermediario | avancado
   nivel          String?
-  /// article | tip | glossary
   tipo           String?
   slug           String?   @unique
   ordem          Int       @default(0)
@@ -339,7 +331,6 @@ model Taxa {
   @@map("taxa")
 }
 
-/// Extra: fora do DER oficial (D-008).
 model Investment {
   id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId       String         @map("user_id") @db.Uuid
@@ -359,7 +350,6 @@ model Investment {
   @@map("investments")
 }
 
-/// Extra: fora do DER oficial (D-008).
 model InvestmentTransaction {
   id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId       String   @map("user_id") @db.Uuid

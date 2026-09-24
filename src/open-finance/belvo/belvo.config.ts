@@ -14,7 +14,6 @@ export type BelvoRuntimeConfig = {
   companyIconUrl: string;
   companyLogoUrl: string;
   companyName: string;
-  /** Belvo sandbox institution id for Brazil Open Finance (technical id, not UI label). */
   sandboxInstitution: string;
 };
 
@@ -35,7 +34,6 @@ export function resolveBelvoConfig(config: ConfigService<Env, true>): BelvoRunti
       config.get('BELVO_WIDGET_CALLBACK_BASE_URL', { infer: true }) ?? frontendUrl
     ).replace(/\/$/, ''),
     termsUrl: config.get('BELVO_TERMS_URL', { infer: true }) ?? 'https://belvo.com/terms-service/',
-    // Hosted Widget roda em https://widget.belvo.io — branding precisa ser HTTPS (não localhost).
     companyIconUrl:
       config.get('BELVO_COMPANY_ICON_URL', { infer: true }) ??
       'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f3e6.svg',

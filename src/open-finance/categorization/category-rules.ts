@@ -4,7 +4,6 @@ export type CategoryRule = {
   tipo: 'RECEITA' | 'DESPESA';
 };
 
-/** Simple keyword rules — no AI. Extensible via this list. */
 export const CATEGORY_RULES: CategoryRule[] = [
   {
     keywords: ['CARTAO DE CREDITO', 'CARTÃO DE CRÉDITO', 'CARTAO CREDITO', 'FATURA CARTAO'],
@@ -106,7 +105,6 @@ export const FALLBACK_CATEGORY = {
   DESPESA: 'Outros',
 } as const;
 
-/** Distinct palette per category (shown in categorias / dashboard). */
 export const CATEGORY_COLORS: Record<string, string> = {
   Receita: '#16a34a',
   'Outros (receita)': '#22c55e',
@@ -126,7 +124,6 @@ export function colorForCategory(nome: string, tipo: 'RECEITA' | 'DESPESA'): str
   return CATEGORY_COLORS[nome] ?? (tipo === 'RECEITA' ? '#16a34a' : '#64748b');
 }
 
-/** Names the user may already have created that should be reused by Open Finance. */
 export const CATEGORY_ALIASES: Record<string, string[]> = {
   Receita: ['Salário', 'Renda', 'Entrada'],
   'Outros (receita)': ['Outros', 'Outras receitas'],

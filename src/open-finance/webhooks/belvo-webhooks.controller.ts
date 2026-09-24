@@ -17,7 +17,6 @@ export class BelvoWebhooksController {
     @Body() body: BelvoWebhookPayload,
   ) {
     this.webhooksService.assertAuthorized(authorization);
-    // Process inline but always acknowledge with 202 per Belvo guidance.
     const result = await this.webhooksService.handle(body ?? {});
     return result;
   }

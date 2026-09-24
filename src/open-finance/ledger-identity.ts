@@ -1,4 +1,3 @@
-/** Compare carteira/categoria names ignoring case, accents and extra spaces. */
 export function normalizeLedgerName(value: string): string {
   return value
     .trim()
@@ -20,10 +19,6 @@ export type CarteiraIdentity = {
   idContaExterna: string | null;
 };
 
-/**
- * Reuse an existing wallet instead of creating a second row with the same name.
- * Prefers a same-name wallet, then the row already linked to this external account.
- */
 export function pickReusableCarteira(
   carteiras: CarteiraIdentity[],
   userId: string,

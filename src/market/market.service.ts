@@ -53,7 +53,6 @@ const AWESOME_PAIRS = FIAT_CODES.map((c) => `${c}-BRL`).join(',');
 const AWESOME_URL = `https://economia.awesomeapi.com.br/json/last/${AWESOME_PAIRS}`;
 const COINGECKO_URL = `https://api.coingecko.com/api/v3/simple/price?ids=${CRYPTO_META.map((c) => c.id).join(',')}&vs_currencies=brl&include_24hr_change=true`;
 
-/** BCB SGS — fontes: api.bcb.gov.br. CDI série 12 é % a.d.; armazenamos anualizado. */
 const BCB_SERIES = [
   { codigo: 432, nome: 'SELIC', periodo: 'aa' as const, bcbUnidade: 'aa' as const },
   { codigo: 12, nome: 'CDI', periodo: 'aa' as const, bcbUnidade: 'ad' as const },
@@ -62,7 +61,6 @@ const BCB_SERIES = [
   { codigo: 196, nome: 'POUPANCA', periodo: 'mensal' as const, bcbUnidade: 'mensal' as const },
 ] as const;
 
-/** Converte CDI diário (SGS 12) para equivalente anual (% a.a., 252 dias úteis). */
 export function anualizarCdiDiario(taxaDiariaPercent: number): number {
   return (Math.pow(1 + taxaDiariaPercent / 100, 252) - 1) * 100;
 }
@@ -194,7 +192,6 @@ export class MarketService {
     });
     if (!taxa) return null;
     let valorPercentual = Number(taxa.valorPercentual);
-    // Dados antigos da série 12 podiam estar em % a.d. (< 1); normaliza para % a.a.
     if (
       (taxa.nome === 'CDI' || taxa.nome === 'CDB') &&
       valorPercentual > 0 &&

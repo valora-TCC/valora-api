@@ -29,7 +29,6 @@ export class BelvoWebhooksService {
 
   assertAuthorized(authorizationHeader?: string): void {
     if (!this.webhookSecret) {
-      // Fail closed when secret is configured expectation in non-dev; if unset, reject.
       throw new UnauthorizedException('Webhook Belvo não configurado');
     }
     const expected = this.webhookSecret.startsWith('Bearer ')
@@ -95,7 +94,6 @@ export class BelvoWebhooksService {
     }
 
     try {
-      // Always re-fetch from Belvo — do not trust webhook payload contents.
       await this.syncService.syncByBelvoLinkId(linkId);
       await this.prisma.eventoSyncOpenFinance.update({
         where: { id: evento.id },

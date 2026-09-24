@@ -35,8 +35,6 @@ export class OpenFinanceSyncService {
       data: { status: 'SYNCING', ultimoErro: null },
     });
 
-    // Demo connections are refreshed by OpenFinanceService.sync (full ledger re-seed).
-    // Keep a no-op here only if syncService is invoked directly for a demo link.
     if (conexao.belvoLinkId.startsWith('demo-')) {
       const updated = await this.prisma.conexaoOpenFinance.update({
         where: { id: conexao.id },
@@ -62,7 +60,6 @@ export class OpenFinanceSyncService {
       const transactions = await this.belvo.listTransactions(conexao.belvoLinkId);
       const imported = await this.upsertTransactions(conexao.idUsuario, accountMap, transactions);
 
-      // Belvo balance is authoritative for OF-linked carteiras after import.
       await this.applyBelvoBalances(accountMap, accounts);
 
       const updated = await this.prisma.conexaoOpenFinance.update({
