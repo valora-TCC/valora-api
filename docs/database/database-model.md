@@ -17,11 +17,11 @@ A API nunca recebe nem persiste senha.
 
 ### usuario
 
-Perfil de aplicação. PK `id_usuario` → `auth.users`. Campos: `nome`, `email` (unique), `data_nascimento` (DER), `data_criacao`, `ativo`. Sem senha.
+Perfil de aplicação. PK `id_usuario` → `auth.users`. Campos: `nome`, `email` (unique), `cpf` (opcional, unique, 11 dígitos — Open Finance), `data_nascimento` (DER), `data_criacao`, `ativo`. Sem senha.
 
 ### carteira
 
-Carteiras do titular. `saldo_atual numeric(18,2)` atualizado por trigger em `transacao`. `ativo` no lugar de TINYINT status.
+Carteiras do titular. `saldo_atual numeric(18,2)` atualizado por trigger em `transacao`. `ativo` no lugar de TINYINT status. Contas Open Finance podem ter `id_conexao_of`, `id_conta_externa` (unique), `instituicao_of`, `tipo_conta_of`, `moeda_of`.
 
 ### categoria
 
@@ -29,7 +29,7 @@ Categorias por usuário. `tipo` ENUM `TipoFinanceiro` (`RECEITA`, `DESPESA`). `c
 
 ### transacao
 
-Movimentação. FK obrigatória para `carteira` e `categoria`. `tipo` `TipoFinanceiro`. `valor > 0`. Sem `id_usuario` direto (isolamento via carteira). `forma_pagamento` é `text`.
+Movimentação. FK obrigatória para `carteira` e `categoria`. `tipo` `TipoFinanceiro`. `valor > 0`. Sem `id_usuario` direto (isolamento via carteira). `forma_pagamento` é `text`. Origem: `origem` (`MANUAL` | `OPEN_FINANCE`), `id_externo` (unique, Belvo), `provedor`.
 
 ### meta / progresso_meta
 
@@ -59,6 +59,12 @@ Moedas (`codigo` unique) e taxas de referência. Leitura pública.
 
 `investments`, `investment_transactions` — mantidas (D-008). FK para `usuario.id_usuario`.
 
+Open Finance / Belvo:
+- `conexao_open_finance` — Link Belvo associado ao usuário (`belvo_link_id` unique)
+- `evento_sync_open_finance` — log/idempotência de webhooks (`event_key` unique)
+
+Detalhes: [open-finance/belvo-integration.md](../open-finance/belvo-integration.md).
+
 ## Relacionamentos
 
 Conforme o DER: usuario 1:N carteira, categoria, meta, orcamento, notificacao, simulacao_juros, usuario_conteudo; carteira 1:N transacao; categoria 1:N transacao e orcamento_categoria; meta 1:N progresso_meta; orcamento 1:N orcamento_categoria; conteudo 1:N usuario_conteudo; moeda 1:N taxa.
@@ -73,7 +79,7 @@ Conforme o DER: usuario 1:N carteira, categoria, meta, orcamento, notificacao, s
 
 ## RLS
 
-Políticas “own row” (`auth.uid()`) em: `usuario`, `carteira`, `categoria`, `transacao` (via carteira), `meta`, `progresso_meta` (via meta), `orcamento`, `orcamento_categoria` (via orcamento), `notificacao`, `simulacao_juros`, `usuario_conteudo`, `investments`, `investment_transactions`.
+Políticas “own row” (`auth.uid()`) em: `usuario`, `carteira`, `categoria`, `transacao` (via carteira), `meta`, `progresso_meta` (via meta), `orcamento`, `orcamento_categoria` (via orcamento), `notificacao`, `simulacao_juros`, `usuario_conteudo`, `investments`, `investment_transactions`, `conexao_open_finance`, `evento_sync_open_finance` (via conexão).
 
 - `moeda`, `taxa`: SELECT `anon` + `authenticated`; escrita service role
 - `conteudo`: SELECT `authenticated`; escrita service role

@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { brazilMonthRange, getBrazilYearMonth } from '../common/date-range';
 import { Prisma } from '../prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
@@ -125,8 +126,7 @@ export class OrcamentosService {
   }
 
   async syncGastosForTransacao(userId: string, idCategoria: string, dataTransacao: Date) {
-    const mes = dataTransacao.getUTCMonth() + 1;
-    const ano = dataTransacao.getUTCFullYear();
+    const { month: mes, year: ano } = getBrazilYearMonth(dataTransacao);
     const orcamentos = await this.prisma.orcamento.findMany({
       where: { idUsuario: userId, mes, ano, ativo: true },
       select: { id: true },
@@ -151,8 +151,7 @@ export class OrcamentosService {
   }
 
   private async sumDespesas(userId: string, idCategoria: string, mes: number, ano: number) {
-    const from = new Date(Date.UTC(ano, mes - 1, 1));
-    const to = new Date(Date.UTC(ano, mes, 1));
+    const { from, to } = brazilMonthRange(ano, mes);
     const agg = await this.prisma.transacao.aggregate({
       _sum: { valor: true },
       where: {

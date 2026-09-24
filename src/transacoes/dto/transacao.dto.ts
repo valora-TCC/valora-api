@@ -18,8 +18,9 @@ export class CreateTransacaoDto {
   @IsUUID()
   idCategoria!: string;
 
+  @IsOptional()
   @IsEnum(TipoFinanceiro)
-  tipo!: TipoFinanceiro;
+  tipo?: TipoFinanceiro;
 
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0.01)

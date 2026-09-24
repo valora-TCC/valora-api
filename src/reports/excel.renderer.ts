@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs';
 import type { ReportPayload } from './report.types';
-import { formatDate } from './report.types';
+import { formatDate, formatDateOnly } from './report.types';
 
 function styleHeader(row: ExcelJS.Row) {
   row.font = { bold: true };
@@ -30,8 +30,8 @@ export async function renderReportExcel(payload: ReportPayload): Promise<Buffer>
         valorObjetivo: meta.valorObjetivo,
         valorAtual: meta.valorAtual,
         percentual: meta.percentual,
-        dataInicio: formatDate(meta.dataInicio),
-        dataFim: formatDate(meta.dataFim),
+        dataInicio: formatDateOnly(meta.dataInicio),
+        dataFim: formatDateOnly(meta.dataFim),
       });
     }
   }
@@ -109,7 +109,7 @@ export async function renderReportExcel(payload: ReportPayload): Promise<Buffer>
     sheet.addRow(['Período', `${formatDate(d.period.from)} — ${formatDate(d.period.to)}`]);
     sheet.addRow(['Receitas', d.totals.income]);
     sheet.addRow(['Despesas', d.totals.expense]);
-    sheet.addRow(['Saldo do período', d.totals.net]);
+    sheet.addRow(['Resultado', d.totals.net]);
     sheet.addRow(['Saldo nas carteiras', d.totals.balance]);
     sheet.addRow([]);
     sheet.addRow(['Despesas por categoria']);

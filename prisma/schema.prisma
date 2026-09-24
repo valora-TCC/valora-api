@@ -13,6 +13,27 @@ enum TipoFinanceiro {
   DESPESA
 }
 
+enum OrigemTransacao {
+  MANUAL
+  OPEN_FINANCE
+}
+
+enum StatusConexaoOpenFinance {
+  PENDING
+  ACTIVE
+  SYNCING
+  ERROR
+  DISCONNECTED
+}
+
+enum StatusEventoSyncOpenFinance {
+  RECEIVED
+  PROCESSING
+  PROCESSED
+  IGNORED
+  FAILED
+}
+
 enum InvestmentType {
   stock
   fund
@@ -25,36 +46,45 @@ model Usuario {
   id             String    @id @map("id_usuario") @db.Uuid
   nome           String
   email          String?   @unique
+  cpf            String?   @unique @db.VarChar(11)
   dataNascimento DateTime? @map("data_nascimento") @db.Date
   dataCriacao    DateTime  @default(now()) @map("data_criacao") @db.Timestamptz(6)
   ativo          Boolean   @default(true)
 
-  carteiras        Carteira[]
-  categorias       Categoria[]
-  metas            Meta[]
-  orcamentos       Orcamento[]
-  notificacoes     Notificacao[]
-  simulacoes       SimulacaoJuros[]
-  usuarioConteudos UsuarioConteudo[]
-  investments      Investment[]
-  investmentTxs    InvestmentTransaction[]
+  carteiras             Carteira[]
+  categorias            Categoria[]
+  metas                 Meta[]
+  orcamentos            Orcamento[]
+  notificacoes          Notificacao[]
+  simulacoes            SimulacaoJuros[]
+  usuarioConteudos      UsuarioConteudo[]
+  investments           Investment[]
+  investmentTxs         InvestmentTransaction[]
+  conexoesOpenFinance   ConexaoOpenFinance[]
 
   @@map("usuario")
 }
 
 model Carteira {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @map("id_carteira") @db.Uuid
-  idUsuario   String   @map("id_usuario") @db.Uuid
-  nome        String
-  descricao   String?
-  saldoAtual  Decimal  @default(0) @map("saldo_atual") @db.Decimal(18, 2)
-  dataCriacao DateTime @default(now()) @map("data_criacao") @db.Timestamptz(6)
-  ativo       Boolean  @default(true)
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @map("id_carteira") @db.Uuid
+  idUsuario       String   @map("id_usuario") @db.Uuid
+  nome            String
+  descricao       String?
+  saldoAtual      Decimal  @default(0) @map("saldo_atual") @db.Decimal(18, 2)
+  dataCriacao     DateTime @default(now()) @map("data_criacao") @db.Timestamptz(6)
+  ativo           Boolean  @default(true)
+  idConexaoOf     String?  @map("id_conexao_of") @db.Uuid
+  idContaExterna  String?  @unique @map("id_conta_externa")
+  instituicaoOf   String?  @map("instituicao_of")
+  tipoContaOf     String?  @map("tipo_conta_of")
+  moedaOf         String?  @map("moeda_of") @db.VarChar(3)
 
-  usuario    Usuario     @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
-  transacoes Transacao[]
+  usuario           Usuario              @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+  conexaoOpenFinance ConexaoOpenFinance? @relation(fields: [idConexaoOf], references: [id], onDelete: SetNull)
+  transacoes        Transacao[]
 
   @@index([idUsuario])
+  @@index([idConexaoOf])
   @@map("carteira")
 }
 
@@ -87,6 +117,9 @@ model Transacao {
   dataTransacao  DateTime        @map("data_transacao") @db.Timestamptz(6)
   formaPagamento String?         @map("forma_pagamento")
   ativo          Boolean         @default(true)
+  origem         OrigemTransacao @default(MANUAL)
+  idExterno      String?         @unique @map("id_externo")
+  provedor       String?         @db.VarChar(32)
 
   carteira  Carteira  @relation(fields: [idCarteira], references: [id], onDelete: Restrict)
   categoria Categoria @relation(fields: [idCategoria], references: [id], onDelete: Restrict)
@@ -94,7 +127,46 @@ model Transacao {
   @@index([idCarteira])
   @@index([idCategoria])
   @@index([dataTransacao(sort: Desc)])
+  @@index([origem])
   @@map("transacao")
+}
+
+model ConexaoOpenFinance {
+  id                   String                    @id @default(dbgenerated("gen_random_uuid()")) @map("id_conexao") @db.Uuid
+  idUsuario            String                    @map("id_usuario") @db.Uuid
+  belvoLinkId          String                    @unique @map("belvo_link_id")
+  instituicao          String
+  status               StatusConexaoOpenFinance  @default(PENDING)
+  ultimaSincronizacao  DateTime?                 @map("ultima_sincronizacao") @db.Timestamptz(6)
+  ultimoErro           String?                   @map("ultimo_erro")
+  dataCriacao          DateTime                  @default(now()) @map("data_criacao") @db.Timestamptz(6)
+  dataAtualizacao      DateTime                  @default(now()) @updatedAt @map("data_atualizacao") @db.Timestamptz(6)
+
+  usuario  Usuario                   @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+  carteiras Carteira[]
+  eventos  EventoSyncOpenFinance[]
+
+  @@index([idUsuario])
+  @@map("conexao_open_finance")
+}
+
+model EventoSyncOpenFinance {
+  id            String                       @id @default(dbgenerated("gen_random_uuid()")) @map("id_evento") @db.Uuid
+  idConexao     String?                      @map("id_conexao") @db.Uuid
+  webhookId     String?                      @map("webhook_id")
+  eventKey      String                       @unique @map("event_key")
+  webhookType   String?                      @map("webhook_type")
+  webhookCode   String?                      @map("webhook_code")
+  status        StatusEventoSyncOpenFinance  @default(RECEIVED)
+  detalhe       String?
+  dataCriacao   DateTime                     @default(now()) @map("data_criacao") @db.Timestamptz(6)
+  dataProcessamento DateTime?                @map("data_processamento") @db.Timestamptz(6)
+
+  conexao ConexaoOpenFinance? @relation(fields: [idConexao], references: [id], onDelete: SetNull)
+
+  @@index([idConexao])
+  @@index([webhookId])
+  @@map("evento_sync_open_finance")
 }
 
 model Meta {
@@ -201,11 +273,8 @@ model Conteudo {
   id             String    @id @default(dbgenerated("gen_random_uuid()")) @map("id_conteudo") @db.Uuid
   titulo         String
   descricao      String?
-  /// Short body / markdown educational text
   corpo          String?
-  /// iniciante | intermediario | avancado
   nivel          String?
-  /// article | tip | glossary
   tipo           String?
   slug           String?   @unique
   ordem          Int       @default(0)
@@ -262,7 +331,6 @@ model Taxa {
   @@map("taxa")
 }
 
-/// Extra: fora do DER oficial (D-008).
 model Investment {
   id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId       String         @map("user_id") @db.Uuid
@@ -282,7 +350,6 @@ model Investment {
   @@map("investments")
 }
 
-/// Extra: fora do DER oficial (D-008).
 model InvestmentTransaction {
   id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId       String   @map("user_id") @db.Uuid

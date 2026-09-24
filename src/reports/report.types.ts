@@ -6,8 +6,8 @@ export type ReportMetaRow = {
   valorObjetivo: number;
   valorAtual: number;
   percentual: number;
-  dataInicio: Date;
-  dataFim: Date;
+  dataInicio: Date | string;
+  dataFim: Date | string;
 };
 
 export type ReportOrcamentoCategoriaRow = {
@@ -80,5 +80,10 @@ export function formatBrl(value: number): string {
 
 export function formatDate(value: Date | string): string {
   const date = value instanceof Date ? value : new Date(value);
-  return new Intl.DateTimeFormat('pt-BR').format(date);
+  return new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo' }).format(date);
+}
+
+export function formatDateOnly(value: Date | string): string {
+  const date = value instanceof Date ? value : new Date(value);
+  return new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' }).format(date);
 }

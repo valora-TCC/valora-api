@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { parseDateOnly, toDateOnlyIso, brazilTodayIso } from '../common/date-range';
 import { Prisma } from '../prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
@@ -40,8 +41,8 @@ export class MetasService {
         nome: dto.nome,
         descricao: dto.descricao,
         valorObjetivo: dto.valorObjetivo,
-        dataInicio: new Date(dto.dataInicio),
-        dataFim: new Date(dto.dataFim),
+        dataInicio: parseDateOnly(dto.dataInicio),
+        dataFim: parseDateOnly(dto.dataFim),
       },
       include: { progressos: true },
     });
@@ -50,8 +51,8 @@ export class MetasService {
 
   async update(userId: string, id: string, dto: UpdateMetaDto) {
     const atual = await this.findOne(userId, id);
-    const dataInicio = dto.dataInicio ?? atual.dataInicio.toISOString();
-    const dataFim = dto.dataFim ?? atual.dataFim.toISOString();
+    const dataInicio = dto.dataInicio ?? toDateOnlyIso(atual.dataInicio);
+    const dataFim = dto.dataFim ?? toDateOnlyIso(atual.dataFim);
     this.assertPeriodo(dataInicio, dataFim);
     const meta = await this.prisma.meta.update({
       where: { id },
@@ -59,8 +60,8 @@ export class MetasService {
         nome: dto.nome,
         descricao: dto.descricao,
         valorObjetivo: dto.valorObjetivo,
-        dataInicio: dto.dataInicio ? new Date(dto.dataInicio) : undefined,
-        dataFim: dto.dataFim ? new Date(dto.dataFim) : undefined,
+        dataInicio: dto.dataInicio ? parseDateOnly(dto.dataInicio) : undefined,
+        dataFim: dto.dataFim ? parseDateOnly(dto.dataFim) : undefined,
       },
       include: { progressos: { orderBy: { data: 'desc' } } },
     });
@@ -81,7 +82,7 @@ export class MetasService {
         data: {
           idMeta: id,
           valor,
-          data: dto.data ? new Date(dto.data) : new Date(),
+          data: dto.data ? parseDateOnly(dto.data) : parseDateOnly(brazilTodayIso()),
           observacao: dto.observacao,
         },
       }),
@@ -90,21 +91,36 @@ export class MetasService {
         data: { valorAtual: new Prisma.Decimal(meta.valorAtual).add(valor) },
       }),
     ]);
-    return progresso;
+    return {
+      ...progresso,
+      data: toDateOnlyIso(progresso.data),
+    };
   }
 
   private assertPeriodo(dataInicio: string, dataFim: string) {
-    if (new Date(dataFim) < new Date(dataInicio)) {
+    if (parseDateOnly(dataFim) < parseDateOnly(dataInicio)) {
       throw new BadRequestException('dataFim must be on or after dataInicio');
     }
   }
 
-  private withStatus<T extends { valorAtual: Prisma.Decimal; valorObjetivo: Prisma.Decimal }>(
-    meta: T,
-  ) {
+  private withStatus<
+    T extends {
+      valorAtual: Prisma.Decimal;
+      valorObjetivo: Prisma.Decimal;
+      dataInicio: Date;
+      dataFim: Date;
+      progressos?: Array<{ data: Date } & Record<string, unknown>>;
+    },
+  >(meta: T) {
     const atual = new Prisma.Decimal(meta.valorAtual);
     const objetivo = new Prisma.Decimal(meta.valorObjetivo);
     const percentual = objetivo.equals(0) ? 0 : Number(atual.div(objetivo).mul(100).toFixed(2));
-    return { ...meta, percentual };
+    return {
+      ...meta,
+      dataInicio: toDateOnlyIso(meta.dataInicio),
+      dataFim: toDateOnlyIso(meta.dataFim),
+      progressos: meta.progressos?.map((p) => ({ ...p, data: toDateOnlyIso(p.data) })),
+      percentual,
+    };
   }
 }
